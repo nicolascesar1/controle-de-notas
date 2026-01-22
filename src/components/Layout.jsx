@@ -1,0 +1,200 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, FileText, PieChart, Wallet, Settings, LogOut } from 'lucide-react';
+
+const Layout = ({ children }) => {
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="logo-area">
+          <div className="logo-icon">F</div>
+          <h1 className="logo-text">Financeiro</h1>
+        </div>
+
+        <nav className="nav-menu">
+          <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <LayoutDashboard size={20} />
+            <span>Painel</span>
+          </NavLink>
+          <NavLink to="/invoices" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <FileText size={20} />
+            <span>Notas Fiscais</span>
+          </NavLink>
+          <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <PieChart size={20} />
+            <span>Relatórios</span>
+          </NavLink>
+          <NavLink to="/banks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Wallet size={20} />
+            <span>Bancos</span>
+          </NavLink>
+
+          <div className="nav-divider"></div>
+
+          <a href="#" className="nav-item">
+            <Settings size={20} />
+            <span>Configurações</span>
+          </a>
+        </nav>
+
+        <div className="user-profile">
+          <div className="avatar">N</div>
+          <div className="user-info">
+            <p className="user-name">Nicolas</p>
+            <p className="user-role">Admin</p>
+          </div>
+          <LogOut size={16} className="logout-icon" />
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <div className="scrollable-content">
+          {children}
+        </div>
+      </main>
+
+      <style>{`
+        .app-shell {
+          display: flex;
+          height: 100vh;
+          background-color: var(--bg-app);
+          overflow: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+          width: 250px;
+          background-color: var(--bg-sidebar);
+          border-right: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          padding: 1.5rem 1rem;
+          flex-shrink: 0;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+            padding-left: 0.75rem;
+        }
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: #3b82f6; /* Branding Blue */
+            color: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            font-family: sans-serif;
+        }
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+        }
+        
+        /* New Sidebar Link Style based on image */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            color: #64748b; /* Slate 500 */
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .nav-item:hover {
+            color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        .nav-item.active {
+            background-color: #eff6ff; /* Blue 50 */
+            color: #3b82f6; /* Blue 500 */
+        }
+        
+        .nav-divider {
+             height: 1px;
+             background-color: var(--border-color);
+             margin: 1rem 0;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 1rem;
+        }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            background-color: #e2e8f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .user-info {
+            flex: 1;
+        }
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .logout-icon {
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .logout-icon:hover { color: var(--status-overdue); }
+
+        /* Main Content Styles */
+        .main-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background-color: var(--bg-app);
+        }
+
+        .scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2.5rem; /* More generous padding */
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; } /* Simples hide para mobile por enquanto */
+            .scrollable-content { padding: 1.5rem; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default Layout;
