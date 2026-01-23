@@ -1,133 +1,106 @@
-import React from 'react';
-import { Package, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package } from 'lucide-react';
+import { getInvoices } from '../services/storage';
+import { formatCurrency } from '../utils/format';
+import { parseISO, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import FilterBar from '../components/FilterBar';
 
 const Invoices = () => {
+    const [invoices, setInvoices] = useState([]);
+    const [filteredInvoices, setFilteredInvoices] = useState([]);
+
+    useEffect(() => {
+        const loadInvoices = async () => {
+            const data = await getInvoices();
+            setInvoices(data);
+            setFilteredInvoices(data);
+        };
+        loadInvoices();
+    }, []);
+
+    const handleFilterChange = (filters) => {
+        let result = invoices;
+
+        // Filter by Supplier
+        if (filters.supplier) {
+            const term = filters.supplier.toLowerCase();
+            result = result.filter(inv =>
+                inv.supplier.toLowerCase().includes(term) ||
+                (inv.invoice_number && inv.invoice_number.includes(term))
+            );
+        }
+
+        // Filter by Date Range
+        if (filters.startDate || filters.endDate) {
+            result = result.filter(inv => {
+                const date = parseISO(inv.purchase_date);
+                const start = filters.startDate ? startOfDay(parseISO(filters.startDate)) : new Date(0);
+                const end = filters.endDate ? endOfDay(parseISO(filters.endDate)) : new Date(8640000000000000);
+
+                return isWithinInterval(date, { start, end });
+            });
+        }
+
+        setFilteredInvoices(result);
+    };
+
     return (
         <div className="p-4">
-            <header className="page-header">
-                <h2 className="page-heading">Notas Fiscais</h2>
-                <button className="btn btn-primary">
-                    + Nova Nota
-                </button>
+            <header className="dashboard-header">
+                <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Notas Fiscais</h2>
+                    <p className="text-secondary">Gerencie suas notas importadas</p>
+                </div>
             </header>
 
-            {/* Filters Toolbar */}
-            <div className="toolbar-card">
-                <div className="search-box">
-                    <Search size={18} className="search-icon" />
-                    <input type="text" placeholder="Buscar por Fornecedor ou Nº da Nota" />
-                </div>
+            <FilterBar onFilterChange={handleFilterChange} />
 
-                <button className="btn-filter">
-                    <Filter size={18} />
-                    <span>Filtrar por Data</span>
-                </button>
-            </div>
-
-            {/* Placeholder Table */}
-            <div className="card table-container">
-                <table className="bills-table">
-                    <thead>
+            {/* Table */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead style={{ backgroundColor: 'var(--slate-50)', borderBottom: '1px solid var(--border-color)' }}>
                         <tr>
-                            <th>Fornecedor</th>
-                            <th>Nº Nota</th>
-                            <th>Data da Compra</th>
-                            <th>Valor Total</th>
-                            <th>Parcelas</th>
-                            <th>Status</th>
+                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Fornecedor</th>
+                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Nº Nota</th>
+                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Data</th>
+                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Valor Total</th>
+                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Parcelas</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td className="supplier-cell">
-                                <div className="supplier-info">
-                                    <span className="supplier-name">Amazon Web Services</span>
-                                </div>
-                            </td>
-                            <td>INV-2023-001</td>
-                            <td>24/10/2023</td>
-                            <td className="amount-cell text-primary">R$ 1.200,00</td>
-                            <td><span className="badge-pill">12x</span></td>
-                            <td><span className="badge badge-paid">Pago</span></td>
-                        </tr>
-                        <tr>
-                            <td className="supplier-cell">
-                                <div className="supplier-info">
-                                    <span className="supplier-name">Papelaria Exemplo</span>
-                                </div>
-                            </td>
-                            <td>INV-2023-002</td>
-                            <td>22/10/2023</td>
-                            <td className="amount-cell text-primary">R$ 450,00</td>
-                            <td><span className="badge-pill">1x</span></td>
-                            <td><span className="badge badge-pending">Pendente</span></td>
-                        </tr>
+                        {filteredInvoices.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--slate-400)' }}>
+                                    Nenhuma nota encontrada com os filtros selecionados.
+                                </td>
+                            </tr>
+                        ) : (
+                            filteredInvoices.map(invoice => (
+                                <tr key={invoice.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                    <td style={{ padding: '1rem 1.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{ padding: '0.5rem', background: 'var(--slate-100)', borderRadius: '8px', color: 'var(--slate-500)' }}>
+                                                <Package size={20} />
+                                            </div>
+                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{invoice.supplier}</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1rem 1.5rem', color: 'var(--slate-500)' }}>{invoice.invoice_number || '-'}</td>
+                                    <td style={{ padding: '1rem 1.5rem', color: 'var(--slate-500)' }}>
+                                        {format(parseISO(invoice.purchase_date), 'dd/MM/yyyy')}
+                                    </td>
+                                    <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }} className="text-primary">
+                                        {formatCurrency(invoice.total_value)}
+                                    </td>
+                                    <td style={{ padding: '1rem 1.5rem' }}>
+                                        <span className="badge badge-default">{invoice.installments_count}x</span>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
-
-            <style>{`
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-        .page-heading { font-size: 1.5rem; color: var(--text-primary); font-weight: 700; }
-        
-        .toolbar-card {
-            background-color: var(--bg-card);
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-sm);
-        }
-        .search-box {
-            flex: 1;
-            position: relative;
-        }
-        .search-icon {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-        }
-        .search-box input {
-            padding-left: 2.5rem;
-        }
-        .btn-filter {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0 1rem;
-            background-color: var(--bg-input);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-        
-        .table-container { padding: 0; overflow: hidden; }
-        .bills-table { width: 100%; text-align: left; border-collapse: collapse; }
-        .bills-table th { padding: 1rem 1.5rem; background: var(--bg-app); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
-        .bills-table td { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
-        .supplier-name { font-weight: 600; }
-        .amount-cell { font-weight: 600; }
-        .text-primary { color: var(--primary); }
-        
-        .badge-pill {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            padding: 2px 8px;
-            border-radius: 99px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-      `}</style>
         </div>
     );
 };

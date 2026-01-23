@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatDate, formatCurrency } from '../utils/format';
-import { CheckCircle, Circle, Copy, MoreHorizontal } from 'lucide-react';
+import { CheckCircle, Circle, Copy, MoreHorizontal, Edit2 } from 'lucide-react';
+import EditBillModal from './EditBillModal';
 
-const BillList = ({ bills, onToggleStatus }) => {
+const BillList = ({ bills, onToggleStatus, onRefresh }) => {
+  const [editingBill, setEditingBill] = useState(null);
+
   const getStatusBadge = (status, dueDate) => {
+    // ... existing code ...
     const isOverdue = status === 'Pending' && new Date(dueDate) < new Date() && new Date().toDateString() !== new Date(dueDate).toDateString();
 
     if (status === 'Paid') {
@@ -25,84 +29,121 @@ const BillList = ({ bills, onToggleStatus }) => {
     // Idealmente usar um toast aqui
   };
 
+  const handleSaveEdit = () => {
+    setEditingBill(null);
+    if (onRefresh) onRefresh();
+  };
+
   return (
-    <div className="card table-container">
-      <div className="table-responsive">
-        <table className="bills-table">
-          <thead>
-            <tr>
-              <th>Situação</th>
-              <th>Vencimento</th>
-              <th>Fornecedor</th>
-              <th>Cód. Barras</th>
-              <th>Parcela</th>
-              <th>Valor</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {bills.length === 0 ? (
+    <>
+      <div className="card table-container">
+        <div className="table-responsive">
+          <table className="bills-table">
+            <thead>
               <tr>
-                <td colSpan="7" className="empty-state">
-                  <div className="empty-content">
-                    <p>Nenhuma conta para este mês</p>
-                    <span>Adicione uma nota fiscal para começar</span>
-                  </div>
-                </td>
+                <th>Situação</th>
+                <th>Vencimento</th>
+                <th>Fornecedor</th>
+                <th>Cód. Barras</th>
+                <th>Parcela</th>
+                <th>Valor</th>
+                <th align="right">Ações</th>
               </tr>
-            ) : (
-              bills.map((bill) => (
-                <tr key={bill.id} className={bill.status === 'Paid' ? 'row-dimmed' : ''}>
-                  <td className="status-cell">{getStatusBadge(bill.status, bill.due_date)}</td>
-                  <td className="date-cell">
-                    <div className="date-wrapper">
-                      <span className="day">{new Date(bill.due_date).getDate()}</span>
-                      <span className="month">{new Date(bill.due_date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
-                      <span className="year">{new Date(bill.due_date).getFullYear()}</span>
+            </thead>
+            <tbody>
+              {bills.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="empty-state">
+                    <div className="empty-content">
+                      <p>Nenhuma conta para este mês</p>
+                      <span>Adicione uma nota fiscal para começar</span>
                     </div>
-                  </td>
-                  <td className="supplier-cell">
-                    <div className="supplier-info">
-                      <span className="supplier-name">{bill.supplier}</span>
-                      <span className="supplier-sub">Nota Fiscal</span>
-                    </div>
-                  </td>
-                  <td>
-                    {bill.barcode ? (
-                      <div className="barcode-badge" onClick={() => copyToClipboard(bill.barcode)} title={bill.barcode}>
-                        <Copy size={12} />
-                        <span className="barcode-text">
-                          {bill.barcode.slice(0, 4)}...{bill.barcode.slice(-4)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-placeholder">-</span>
-                    )}
-                  </td>
-                  <td className="installment-cell">{bill.installment_number}</td>
-                  <td className="amount-cell">{formatCurrency(bill.amount)}</td>
-                  <td align="right">
-                    <button
-                      className={`action-btn ${bill.status === 'Paid' ? 'undo' : 'pay'}`}
-                      onClick={() => onToggleStatus(bill.id, bill.status)}
-                    >
-                      {bill.status === 'Paid' ? "Desfazer" : "Pagar"}
-                    </button>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                bills.map((bill) => (
+                  <tr key={bill.id} className={bill.status === 'Paid' ? 'row-dimmed' : ''}>
+                    <td className="status-cell">{getStatusBadge(bill.status, bill.due_date)}</td>
+                    <td className="date-cell">
+                      <div className="date-wrapper">
+                        <span className="day">{new Date(bill.due_date).getDate()}</span>
+                        <span className="month">{new Date(bill.due_date).toLocaleDateString('pt-BR', { month: 'short' })}</span>
+                        <span className="year">{new Date(bill.due_date).getFullYear()}</span>
+                      </div>
+                    </td>
+                    <td className="supplier-cell">
+                      <div className="supplier-info">
+                        <span className="supplier-name">{bill.supplier}</span>
+                        <span className="supplier-sub">Nota Fiscal</span>
+                      </div>
+                    </td>
+                    <td>
+                      {bill.barcode ? (
+                        <div className="barcode-badge" onClick={() => copyToClipboard(bill.barcode)} title={bill.barcode}>
+                          <Copy size={12} />
+                          <span className="barcode-text">
+                            {bill.barcode.slice(0, 4)}...{bill.barcode.slice(-4)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-placeholder">-</span>
+                      )}
+                    </td>
+                    <td className="installment-cell">{bill.installment_number}</td>
+                    <td className="amount-cell">{formatCurrency(bill.amount)}</td>
+                    <td align="right">
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button
+                          className="action-btn-icon"
+                          title="Editar"
+                          onClick={() => setEditingBill(bill)}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          className={`action-btn ${bill.status === 'Paid' ? 'undo' : 'pay'}`}
+                          onClick={() => onToggleStatus(bill.id, bill.status)}
+                        >
+                          {bill.status === 'Paid' ? "Desfazer" : "Pagar"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      <style>{`
+        <style>{`
+        /* ... existing styles ... */
         .table-container {
-            padding: 0; /* Remove padding do card para tabela encostar nas bordas */
+            padding: 0;
             overflow: hidden;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-sm);
         }
+        /* New styles for icon button */
+        /* New styles for icon button */
+        .action-btn-icon {
+            padding: 6px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            background-color: var(--slate-100); /* Force background */
+            border: 1px solid var(--border-color); /* Force border */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            width: 32px; /* Fixed width */
+            height: 32px; /* Fixed height */
+        }
+        .action-btn-icon:hover {
+            background-color: var(--primary-100);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
         .table-responsive {
           overflow-x: auto;
         }
@@ -211,7 +252,16 @@ const BillList = ({ bills, onToggleStatus }) => {
         }
         .text-placeholder { color: var(--text-muted); font-size: 0.8rem; }
       `}</style>
-    </div>
+      </div>
+
+      {editingBill && (
+        <EditBillModal
+          bill={editingBill}
+          onClose={() => setEditingBill(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
+    </>
   );
 };
 

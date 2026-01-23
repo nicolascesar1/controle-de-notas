@@ -4,20 +4,51 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
 import Reports from './pages/Reports';
-import Banks from './pages/Banks';
+import Settings from './pages/Settings';
+
+import { AuthProvider } from './context/AuthContext';
+import PrivateRoute from './components/PrivateRoute';
+import Login from './pages/Login';
 
 function App() {
     return (
-        <Router>
-            <Layout>
+        <AuthProvider>
+            <Router>
                 <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/invoices" element={<Invoices />} />
-                    <Route path="/reports" element={<Reports />} />
-                    <Route path="/banks" element={<Banks />} />
+                    <Route path="/login" element={<Login />} />
+
+                    {/* Protected Routes */}
+                    <Route path="/" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <Dashboard />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
+                    <Route path="/invoices" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <Invoices />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
+                    <Route path="/reports" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <Reports />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
+                    <Route path="/settings" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <Settings />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
                 </Routes>
-            </Layout>
-        </Router>
+            </Router>
+        </AuthProvider>
     );
 }
 

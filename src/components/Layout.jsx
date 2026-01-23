@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, PieChart, Wallet, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, PieChart, Settings, LogOut } from 'lucide-react';
 
 const Layout = ({ children }) => {
   return (
@@ -20,21 +20,18 @@ const Layout = ({ children }) => {
             <FileText size={20} />
             <span>Notas Fiscais</span>
           </NavLink>
+
           <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <PieChart size={20} />
             <span>Relatórios</span>
           </NavLink>
-          <NavLink to="/banks" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <Wallet size={20} />
-            <span>Bancos</span>
-          </NavLink>
 
           <div className="nav-divider"></div>
 
-          <a href="#" className="nav-item">
+          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Settings size={20} />
             <span>Configurações</span>
-          </a>
+          </NavLink>
         </nav>
 
         <div className="user-profile">
