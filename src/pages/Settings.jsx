@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Download, Trash2, ShieldAlert } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Download, Trash2, ShieldAlert, Upload } from 'lucide-react';
 import { getInvoices } from '../services/storage';
 import { format } from 'date-fns';
 
@@ -9,34 +9,25 @@ const Settings = () => {
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            // Fetch all data
-            const invoices = await getInvoices();
+            // Fetch all core collections
+            const invoices = JSON.parse(localStorage.getItem("finance_app_invoices") || "[]");
             const bills = JSON.parse(localStorage.getItem("finance_app_bills") || "[]");
+            const suppliers = JSON.parse(localStorage.getItem("finance_app_registered_suppliers") || "[]");
 
-            // Prepare CSV Content
-            // Headers
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Tipo,ID,Fornecedor,Data,Valor,Status,Parcela/Descricao\n";
+            const backupData = {
+                version: "1.0.0",
+                exportDate: new Date().toISOString(),
+                collections: {
+                    finance_app_invoices: invoices,
+                    finance_app_bills: bills,
+                    finance_app_registered_suppliers: suppliers
+                }
+            };
 
-            // Add Invoices
-            invoices.forEach(inv => {
-                const date = format(new Date(inv.purchase_date), 'dd/MM/yyyy');
-                const line = `Nota Fiscal,${inv.id},${inv.supplier},${date},${inv.total_value},Registrada,${inv.invoice_number || ''}`;
-                csvContent += line + "\n";
-            });
-
-            // Add Bills (Contas a Pagar)
-            bills.forEach(bill => {
-                const date = format(new Date(bill.due_date), 'dd/MM/yyyy');
-                const line = `Parcela,${bill.id},${bill.supplier},${date},${bill.amount},${bill.status},${bill.installment_number}`;
-                csvContent += line + "\n";
-            });
-
-            // Trigger Download
-            const encodedUri = encodeURI(csvContent);
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `backup_financeiro_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+            link.setAttribute("href", dataStr);
+            link.setAttribute("download", `backup_financeiro_${format(new Date(), 'yyyy-MM-dd')}.json`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -49,6 +40,45 @@ const Settings = () => {
         } finally {
             setIsExporting(false);
         }
+    };
+
+    const handleImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                
+                if (!importedData.collections) {
+                    throw new Error("Arquivo inválido. Coleções ausentes.");
+                }
+
+                if (window.confirm("Atenção: A importação irá SOBRESCREVER E RESTAURAR os dados da sua aplicação de acordo com o arquivo. Você tem certeza?")) {
+                    
+                    if (importedData.collections.finance_app_invoices) {
+                        localStorage.setItem("finance_app_invoices", JSON.stringify(importedData.collections.finance_app_invoices));
+                    }
+                    if (importedData.collections.finance_app_bills) {
+                        localStorage.setItem("finance_app_bills", JSON.stringify(importedData.collections.finance_app_bills));
+                    }
+                    if (importedData.collections.finance_app_registered_suppliers) {
+                        localStorage.setItem("finance_app_registered_suppliers", JSON.stringify(importedData.collections.finance_app_registered_suppliers));
+                    }
+
+                    alert("Backup restaurado com sucesso!");
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error("Erro na importação:", error);
+                alert("Erro ao ler arquivo. Certifique-se de que é um .json de backup válido.");
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset the input value so user can import same file again if aborted
+        e.target.value = null;
     };
 
     const handleClearData = () => {
@@ -70,14 +100,20 @@ const Settings = () => {
             <div className="card" style={{ marginBottom: '2rem' }}>
                 <h3 className="section-title">Dados e Backup</h3>
                 <p className="text-secondary" style={{ marginBottom: '1.5rem' }}>
-                    Faça o download de todos os seus dados para uma planilha (Excel/Google Sheets) ou limpe o armazenamento local.
+                    Faça o download ou importe todos os seus dados em um pacote seguro (.json) para salvar na nuvem ou formatar seu PC. 
                 </p>
 
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     <button className="btn btn-primary" onClick={handleExport} disabled={isExporting}>
                         <Download size={18} />
-                        <span>{isExporting ? 'Gerando...' : 'Exportar para Planilha (CSV)'}</span>
+                        <span>{isExporting ? 'Gerando...' : 'Fazer Backup (.json)'}</span>
                     </button>
+
+                    <label className="btn btn-ghost" style={{ cursor: 'pointer', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
+                        <Upload size={18} />
+                        <span>Restaurar (.json)</span>
+                        <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
+                    </label>
 
                     <button className="btn btn-ghost" style={{ color: 'var(--danger)', border: '1px solid var(--danger-bg)', backgroundColor: 'var(--danger-bg)' }} onClick={handleClearData}>
                         <Trash2 size={18} />

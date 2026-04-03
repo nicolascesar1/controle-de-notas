@@ -1,23 +1,66 @@
-import React, { useState } from 'react';
-import { Plus, X, Calendar, DollarSign, Package, Barcode } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, X, Calendar, DollarSign, Package, Barcode, Tag, ImagePlus } from 'lucide-react';
+import { getRegisteredSuppliers } from '../services/storage';
+import SupplierModal from './SupplierModal';
 
 import { addDays, parseISO } from 'date-fns';
 
 const InvoiceForm = ({ onSubmit, isLoading }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+    const [suppliers, setSuppliers] = useState([]);
+
+    useEffect(() => {
+        if (isExpanded) {
+            getRegisteredSuppliers().then(setSuppliers);
+        }
+    }, [isExpanded]);
+
+    const handleSaveSupplier = (newSupplier) => {
+        getRegisteredSuppliers().then(setSuppliers);
+        setFormData(prev => ({ ...prev, supplier: newSupplier.name }));
+    };
 
     const today = new Date().toISOString().split('T')[0];
     const initialDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const [formData, setFormData] = useState({
         supplier: '',
-        invoice_number: '',
         purchase_date: today,
         firstDueDate: initialDueDate,
         total_value: '',
         installments_count: 1,
-        barcode: ''
+        photo: null
     });
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                let scaleSize = 1;
+                if (img.width > MAX_WIDTH) {
+                    scaleSize = MAX_WIDTH / img.width;
+                }
+                canvas.width = img.width * scaleSize;
+                canvas.height = img.height * scaleSize;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // Compress heavily to keep LocalStorage safe (~0.5 quality)
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                setFormData(prev => ({ ...prev, photo: dataUrl }));
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -54,12 +97,11 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
         setIsExpanded(false);
         setFormData({
             supplier: '',
-            invoice_number: '',
             purchase_date: new Date().toISOString().split('T')[0],
             firstDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             total_value: '',
             installments_count: 1,
-            barcode: ''
+            photo: null
         });
     };
 
@@ -75,6 +117,7 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
     }
 
     return (
+        <>
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsExpanded(false) }}>
             <div className="modal-content">
                 <div className="modal-header">
@@ -92,33 +135,34 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
                         <div className="form-grid">
                             <div className="form-group col-span-2">
                                 <label>Fornecedor</label>
-                                <div className="input-with-icon">
-                                    <Package size={18} className="input-icon" />
-                                    <input
-                                        type="text"
-                                        name="supplier"
-                                        required
-                                        placeholder="Ex: Coca-Cola, Kalunga..."
-                                        value={formData.supplier}
-                                        onChange={handleChange}
-                                    />
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                                    <div className="input-with-icon" style={{ flex: 1 }}>
+                                        <Package size={18} className="input-icon" />
+                                        <select
+                                            name="supplier"
+                                            required
+                                            value={formData.supplier}
+                                            onChange={handleChange}
+                                            style={{ paddingLeft: '2.5rem' }}
+                                        >
+                                            <option value="" disabled>Selecione um fornecedor...</option>
+                                            {suppliers.map((sup) => (
+                                                <option key={sup.id} value={sup.name}>{sup.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-ghost" 
+                                        style={{ padding: '0.4rem', border: '1px solid var(--border-color)', height: '42px', width: '42px', display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: '0.375rem' }}
+                                        onClick={() => setIsSupplierModalOpen(true)}
+                                        title="Novo Fornecedor Rápido"
+                                    >
+                                        <Plus size={20} />
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="form-group">
-                                <label>Número da Nota</label>
-                                <div className="input-with-icon">
-                                    <span className="input-icon" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>#</span>
-                                    <input
-                                        type="text"
-                                        name="invoice_number"
-                                        required
-                                        placeholder="000.000.000"
-                                        value={formData.invoice_number}
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
 
                             <div className="form-group">
                                 <label>Data da Compra</label>
@@ -181,16 +225,17 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
                                 </select>
                             </div>
 
-                            <div className="form-group col-span-2">
-                                <label>Código de Barras (1ª Parcela)</label>
+
+                            <div className="form-group">
+                                <label>Anexar Recibo / Foto</label>
                                 <div className="input-with-icon">
-                                    <Barcode size={18} className="input-icon" />
+                                    <ImagePlus size={18} className="input-icon" />
                                     <input
-                                        type="text"
-                                        name="barcode"
-                                        placeholder="Escaneie ou digite..."
-                                        value={formData.barcode}
-                                        onChange={handleChange}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={handleImageUpload}
+                                        style={{ padding: '0.4rem 0.5rem 0.4rem 2.5rem' }}
                                     />
                                 </div>
                             </div>
@@ -208,6 +253,14 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
                 </form>
             </div>
         </div>
+
+        {isSupplierModalOpen && (
+             <SupplierModal 
+                 onClose={() => setIsSupplierModalOpen(false)} 
+                 onSave={handleSaveSupplier} 
+             />
+        )}
+        </>
     );
 };
 

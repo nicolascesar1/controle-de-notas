@@ -1,22 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { Package } from 'lucide-react';
-import { getInvoices } from '../services/storage';
+import { getInvoices, createInvoice, deleteInvoice } from '../services/storage';
 import { formatCurrency } from '../utils/format';
 import { parseISO, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import FilterBar from '../components/FilterBar';
+import InvoiceForm from '../components/InvoiceForm';
+import InvoiceTable from '../components/InvoiceTable';
+import EditInvoiceModal from '../components/EditInvoiceModal';
 
 const Invoices = () => {
     const [invoices, setInvoices] = useState([]);
     const [filteredInvoices, setFilteredInvoices] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingInvoice, setEditingInvoice] = useState(null);
+
+    const loadInvoices = async () => {
+        const data = await getInvoices();
+        setInvoices(data);
+        setFilteredInvoices(data);
+    };
 
     useEffect(() => {
-        const loadInvoices = async () => {
-            const data = await getInvoices();
-            setInvoices(data);
-            setFilteredInvoices(data);
-        };
         loadInvoices();
     }, []);
+
+    const handleCreateInvoice = async (formData) => {
+        setIsSubmitting(true);
+        try {
+            await createInvoice(formData);
+            alert("Nota salva com sucesso!");
+            await loadInvoices();
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao criar Nota Fiscal.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteInvoice = async (invoiceId) => {
+        if (window.confirm("Atenção! Isso excluirá a nota fiscal e TODAS as parcelas associadas a ela. Continuar?")) {
+            await deleteInvoice(invoiceId);
+            loadInvoices();
+        }
+    };
 
     const handleFilterChange = (filters) => {
         let result = invoices;
@@ -49,58 +76,29 @@ const Invoices = () => {
             <header className="dashboard-header">
                 <div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Notas Fiscais</h2>
-                    <p className="text-secondary">Gerencie suas notas importadas</p>
+                    <p className="text-secondary">Gerencie e adicione suas notas</p>
+                </div>
+                <div>
+                    <InvoiceForm onSubmit={handleCreateInvoice} isLoading={isSubmitting} />
                 </div>
             </header>
 
             <FilterBar onFilterChange={handleFilterChange} />
 
             {/* Table */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead style={{ backgroundColor: 'var(--slate-50)', borderBottom: '1px solid var(--border-color)' }}>
-                        <tr>
-                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Fornecedor</th>
-                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Nº Nota</th>
-                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Data</th>
-                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Valor Total</th>
-                            <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Parcelas</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredInvoices.length === 0 ? (
-                            <tr>
-                                <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--slate-400)' }}>
-                                    Nenhuma nota encontrada com os filtros selecionados.
-                                </td>
-                            </tr>
-                        ) : (
-                            filteredInvoices.map(invoice => (
-                                <tr key={invoice.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                    <td style={{ padding: '1rem 1.5rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            <div style={{ padding: '0.5rem', background: 'var(--slate-100)', borderRadius: '8px', color: 'var(--slate-500)' }}>
-                                                <Package size={20} />
-                                            </div>
-                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{invoice.supplier}</span>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '1rem 1.5rem', color: 'var(--slate-500)' }}>{invoice.invoice_number || '-'}</td>
-                                    <td style={{ padding: '1rem 1.5rem', color: 'var(--slate-500)' }}>
-                                        {format(parseISO(invoice.purchase_date), 'dd/MM/yyyy')}
-                                    </td>
-                                    <td style={{ padding: '1rem 1.5rem', fontWeight: 600 }} className="text-primary">
-                                        {formatCurrency(invoice.total_value)}
-                                    </td>
-                                    <td style={{ padding: '1rem 1.5rem' }}>
-                                        <span className="badge badge-default">{invoice.installments_count}x</span>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+            <InvoiceTable 
+                invoices={filteredInvoices} 
+                onEdit={setEditingInvoice} 
+                onDelete={handleDeleteInvoice} 
+            />
+
+            {editingInvoice && (
+                <EditInvoiceModal
+                    invoice={editingInvoice}
+                    onClose={() => setEditingInvoice(null)}
+                    onSave={loadInvoices}
+                />
+            )}
         </div>
     );
 };

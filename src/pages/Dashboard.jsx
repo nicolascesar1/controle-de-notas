@@ -1,66 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import SummaryCard from '../components/SummaryCard';
-import BillList from '../components/BillList';
-import InvoiceForm from '../components/InvoiceForm';
-import { createInvoice } from '../services/storage';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { formatMonthYear } from '../utils/format';
-import { addDays, parseISO } from 'date-fns';
+import UpcomingTimeline from '../components/UpcomingTimeline';
+import { ChevronLeft, ChevronRight, Calendar, MessageCircle } from 'lucide-react';
+import { formatMonthYear, formatCurrency } from '../utils/format';
+import { getBills, toggleBillStatus, getInvoices } from '../services/storage';
+
+import CashflowChart from '../components/CashflowChart';
+import SupplierDonutChart from '../components/SupplierDonutChart';
+import BurnRateChart from '../components/BurnRateChart';
 
 import { useBills } from '../hooks/useBills';
 
 const Dashboard = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [upcomingBills, setUpcomingBills] = useState([]);
+    const [allGlobalBills, setAllGlobalBills] = useState([]);
+    const [allGlobalInvoices, setAllGlobalInvoices] = useState([]);
+    const [isUpcomingLoading, setIsUpcomingLoading] = useState(true);
 
-    // Use Custom Hook
-    const { bills, isLoading, summary, fetchBills, toggleStatus } = useBills();
+    // Use Custom Hook for month summary
+    const { bills, isLoading, summary, fetchBills } = useBills();
 
     useEffect(() => {
         const month = currentDate.getMonth() + 1;
         const year = currentDate.getFullYear();
         fetchBills(month, year);
-    }, [currentDate, fetchBills]);
+    }, [currentDate, fetchBills, refreshTrigger]);
 
-    const handleCreateInvoice = async (formData) => {
-        setIsSubmitting(true);
-        try {
-            await createInvoice(formData);
+    useEffect(() => {
+        const loadGlobals = async () => {
+            setIsUpcomingLoading(true);
+            const allBills = await getBills();
+            const allInv = await getInvoices();
+            
+            setAllGlobalBills(allBills);
+            setAllGlobalInvoices(allInv);
 
-            // Logic: The first bill is created 30 days after purchase, OR uses the manual date
-            const purchaseDate = parseISO(formData.purchase_date);
+            const pending = allBills.filter(b => b.status === 'Pending');
+            pending.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+            setUpcomingBills(pending.slice(0, 3));
+            setIsUpcomingLoading(false);
+        };
+        loadGlobals();
+    }, [refreshTrigger]);
 
-            // Priority to manual date if set
-            let firstDueDate;
-            if (formData.firstDueDate) {
-                firstDueDate = parseISO(formData.firstDueDate);
-            } else {
-                firstDueDate = addDays(purchaseDate, 30);
-            }
 
-            // Switch view to the month of the first installment
-            if (firstDueDate.getMonth() !== currentDate.getMonth() || firstDueDate.getFullYear() !== currentDate.getFullYear()) {
-                setCurrentDate(firstDueDate);
-            } else {
-                // Refresh current view
-                const month = currentDate.getMonth() + 1;
-                const year = currentDate.getFullYear();
-                fetchBills(month, year);
-            }
-
-            alert(`Nota salva com sucesso! A primeira parcela vence em ${firstDueDate.toLocaleDateString('pt-BR')}.`);
-
-        } catch (error) {
-            console.error(error);
-            alert("Erro ao criar Nota Fiscal.");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     const handleToggleStatus = async (id, currentStatus) => {
-        const success = await toggleStatus(id, currentStatus);
-        if (!success) {
+        try {
+            await toggleBillStatus(id, currentStatus);
+            setRefreshTrigger(prev => prev + 1);
+        } catch (error) {
             alert("Não foi possível atualizar o status.");
         }
     };
@@ -75,6 +66,40 @@ const Dashboard = () => {
         setCurrentDate(new Date());
     };
 
+    const handleWhatsAppExport = async () => {
+        const allBills = await getBills();
+        const todayStr = new Date().toDateString();
+        
+        // Filtra todas as pendências globais onde o vencimento é <= hoje
+        const targets = allBills.filter(b => {
+             if (b.status === 'Paid') return false;
+             const dueDate = new Date(b.due_date);
+             const today = new Date();
+             return dueDate <= today || dueDate.toDateString() === todayStr;
+        });
+
+        if (targets.length === 0) {
+            alert('Nenhuma pendência para o dia de hoje!');
+            return;
+        }
+
+        let text = `*Lembrete de Pagamentos - ${new Date().toLocaleDateString('pt-BR')}*\n\n`;
+        let totalVal = 0;
+        
+        targets.forEach((b, i) => {
+            text += `${i+1}. *${b.supplier}*\n`;
+            text += `   Valor: ${formatCurrency(b.amount)}\n`;
+            text += `   Parcela: ${b.installment_number}\n`;
+            if (b.barcode) text += `   Cód: ${b.barcode}\n`;
+            text += `\n`;
+            totalVal += b.amount;
+        });
+        
+        text += `*Total Deste Lote:* ${formatCurrency(totalVal)}`;
+        const encodedText = encodeURIComponent(text);
+        window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
+    };
+
     return (
         <>
             <header className="dashboard-header">
@@ -87,8 +112,15 @@ const Dashboard = () => {
             </header>
 
             <div className="dashboard-controls">
-                <div className="left-controls">
-                    <InvoiceForm onSubmit={handleCreateInvoice} isLoading={isSubmitting} />
+                <div className="left-controls" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button 
+                         className="btn btn-ghost" 
+                         onClick={handleWhatsAppExport} 
+                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#16a34a', borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+                    >
+                        <MessageCircle size={18} />
+                        <span>Pagar Hoje</span>
+                    </button>
                 </div>
 
                 <div className="month-selector">
@@ -113,17 +145,47 @@ const Dashboard = () => {
                 <SummaryCard title="Vencido" value={summary.overdue} type="danger" />
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-                <h3 className="section-title">Contas do Mês</h3>
-            </div>
-
-            {isLoading ? (
+            {isUpcomingLoading ? (
                 <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--slate-400)' }}>
                     <div className="spinner" style={{ marginBottom: '1rem' }}></div>
                     <p>Carregando dados...</p>
                 </div>
             ) : (
-                <BillList bills={bills} onToggleStatus={toggleStatus} onRefresh={fetchBills} />
+                <>
+                    {/* Linha 2 do Pareto - Operacional */}
+                    <div className="dashboard-grid-linha2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                        <div style={{ gridColumn: 'span 2' }} className="responsive-span-2">
+                            <CashflowChart bills={allGlobalBills} />
+                        </div>
+                        <div>
+                            <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <h3 className="section-title" style={{ marginBottom: '0.25rem' }}>Próximas Contas a Pagar</h3>
+                                    <p className="text-secondary" style={{ fontSize: '0.875rem' }}>Top 3 urgências pendentes.</p>
+                                </div>
+                                {upcomingBills.length === 0 ? (
+                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--slate-400)', fontSize: '0.875rem' }}>
+                                        Nada pendente! 🎉
+                                    </div>
+                                ) : (
+                                    <div style={{ flex: 1 }}>
+                                        <UpcomingTimeline bills={upcomingBills} onToggleStatus={handleToggleStatus} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Linha 3 do Pareto - Análise Tática */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                        <div>
+                            <SupplierDonutChart bills={allGlobalBills} />
+                        </div>
+                        <div>
+                            <BurnRateChart invoices={allGlobalInvoices} />
+                        </div>
+                    </div>
+                </>
             )}
         </>
     );

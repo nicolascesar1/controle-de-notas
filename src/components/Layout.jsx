@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, PieChart, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, PieChart, Settings, LogOut, Truck } from 'lucide-react';
 
 const Layout = ({ children }) => {
   return (
@@ -21,9 +21,10 @@ const Layout = ({ children }) => {
             <span>Notas Fiscais</span>
           </NavLink>
 
-          <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <PieChart size={20} />
-            <span>Relatórios</span>
+
+          <NavLink to="/suppliers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Truck size={20} />
+            <span>Fornecedores</span>
           </NavLink>
 
           <div className="nav-divider"></div>
@@ -180,9 +181,7 @@ const Layout = ({ children }) => {
             flex: 1;
             overflow-y: auto;
             padding: 2.5rem; /* More generous padding */
-            max-width: 1400px;
             width: 100%;
-            margin: 0 auto;
         }
 
         @media (max-width: 768px) {

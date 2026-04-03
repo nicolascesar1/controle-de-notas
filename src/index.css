@@ -1,45 +1,45 @@
 :root {
-  /* Brand Colors - Premium Blue */
-  --primary-50: #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;
-  --primary-700: #1d4ed8;
+  /* Brand Colors - Monochromatic Corporate */
+  --primary-50: #f4f4f5;
+  --primary-100: #e4e4e7;
+  --primary-500: #3f3f46;
+  --primary-600: #18181b;
+  --primary-700: #09090b;
 
-  /* Neutrals - Slate */
-  --slate-50: #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
+  /* Neutrals - Slate / Zinc */
+  --slate-50: #fafafa;
+  --slate-100: #f4f4f5;
+  --slate-200: #e4e4e7;
+  --slate-400: #a1a1aa;
+  --slate-500: #71717a;
+  --slate-800: #27272a;
+  --slate-900: #18181b;
 
-  /* Semantic Colors */
-  --success: #10b981;
+  /* Semantic Colors - More subdued */
+  --success: #059669;
   --success-bg: #ecfdf5;
-  --warning: #f59e0b;
+  --warning: #d97706;
   --warning-bg: #fffbeb;
-  --danger: #ef4444;
+  --danger: #dc2626;
   --danger-bg: #fef2f2;
 
   /* Objects */
-  --bg-app: var(--slate-50);
+  --bg-app: #fcfcfc;
   --bg-card: #ffffff;
   --text-primary: var(--slate-900);
   --text-secondary: var(--slate-500);
   --border-color: var(--slate-200);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  /* Shadows - Minimalist and flat */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.04), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
 
-  /* Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
+  /* Radius - Sharper edges */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
 }
 
 * {
@@ -116,12 +116,14 @@ body {
 
 .btn-primary:hover {
   background-color: var(--primary-700);
-  transform: translateY(-1px);
+  /* Sem translação Y para manter o minimalismo e rigidez formal */
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--slate-500);
+  border: none;
+  cursor: pointer;
 }
 
 .btn-ghost:hover {
@@ -135,6 +137,16 @@ body {
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   padding: 1.5rem;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--slate-400); 
+}
+
+th {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 input,
@@ -152,8 +164,8 @@ select {
 input:focus,
 select:focus {
   outline: none;
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px var(--primary-50);
+  border-color: var(--primary-600);
+  box-shadow: 0 0 0 1px var(--primary-600);
 }
 
 /* Specific Component Styles - Summary Card */
@@ -356,27 +368,39 @@ select:focus {
   margin-bottom: 1.25rem;
 }
 
+@media (max-width: 1024px) {
+  .responsive-span-2 {
+    grid-column: span 1 !important;
+  }
+}
+
 /* Badges */
 .badge {
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
 }
 
 .badge-pending {
-  background-color: var(--warning-bg);
-  color: var(--warning);
+  background-color: var(--danger-bg);
+  color: var(--danger);
+  border-color: #fca5a5;
 }
 
 .badge-paid {
   background-color: var(--success-bg);
   color: var(--success);
+  border-color: #6ee7b7;
 }
 
 .badge-default {
   background-color: var(--slate-100);
   color: var(--slate-500);
+  border-color: var(--border-color);
 }

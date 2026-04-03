@@ -3,8 +3,9 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
-import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Suppliers from './pages/Suppliers';
+import SupplierDetails from './pages/SupplierDetails';
 
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -32,17 +33,24 @@ function App() {
                             </Layout>
                         </PrivateRoute>
                     } />
-                    <Route path="/reports" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <Reports />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
                     <Route path="/settings" element={
                         <PrivateRoute>
                             <Layout>
                                 <Settings />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
+                    <Route path="/suppliers" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <Suppliers />
+                            </Layout>
+                        </PrivateRoute>
+                    } />
+                    <Route path="/suppliers/:id" element={
+                        <PrivateRoute>
+                            <Layout>
+                                <SupplierDetails />
                             </Layout>
                         </PrivateRoute>
                     } />
