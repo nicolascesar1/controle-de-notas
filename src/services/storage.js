@@ -1,41 +1,51 @@
-import { addDays, parseISO, formatISO, getMonth, getYear, startOfDay } from "date-fns";
+import { addDays, parseISO, formatISO, getMonth, getYear } from "date-fns";
+import { 
+    collection, 
+    addDoc, 
+    getDocs, 
+    updateDoc, 
+    deleteDoc, 
+    doc, 
+    query, 
+    where, 
+    orderBy, 
+    getDoc,
+    writeBatch
+} from "firebase/firestore";
+import { db, auth } from "../firebase/config";
 
-const INVOICES_KEY = "finance_app_invoices";
-const BILLS_KEY = "finance_app_bills";
-const SUPPLIERS_KEY = "finance_app_registered_suppliers";
+const INVOICES_COLLECTION = "invoices";
+const BILLS_COLLECTION = "bills";
+const SUPPLIERS_COLLECTION = "suppliers";
 
-const generateId = () => Math.random().toString(36).substr(2, 9);
+const getUserId = () => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+    return user.uid;
+};
 
 /**
  * Creates an invoice and automatically generates the bills (installments).
- * Uses LocalStorage for persistence.
- * @param {Object} invoiceData 
+ * Uses Firebase Firestore for persistence.
  */
 export const createInvoice = async (invoiceData) => {
     try {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-
-        const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY) || "[]");
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
-
-        const invoiceId = generateId();
-        const createdDate = new Date();
-
-        // Ensure base date uses firstDueDate if available
-        const baseDate = invoiceData.firstDueDate ? parseISO(invoiceData.firstDueDate) : parseISO(invoiceData.purchase_date);
-
-        const newInvoice = {
-            id: invoiceId,
+        const userId = getUserId();
+        
+        // 1. Create Invoice Document
+        const invoiceRef = await addDoc(collection(db, INVOICES_COLLECTION), {
             ...invoiceData,
-            created_at: formatISO(createdDate),
-            purchase_date: invoiceData.purchase_date,
+            userId,
+            created_at: formatISO(new Date()),
             category: invoiceData.category || "Outros",
             photo: invoiceData.photo || null
-        };
+        });
 
-        invoices.push(newInvoice);
+        const invoiceId = invoiceRef.id;
 
-        // Arithmetic cent rounding logic
+        // 2. Generate Bills (Installments)
+        const baseDate = invoiceData.firstDueDate ? parseISO(invoiceData.firstDueDate) : parseISO(invoiceData.purchase_date);
+        
         let remainingCents = 0;
         let baseInstallmentValue = invoiceData.total_value;
 
@@ -46,20 +56,18 @@ export const createInvoice = async (invoiceData) => {
             baseInstallmentValue = sliceCents / 100;
         }
 
+        const batch = writeBatch(db);
+
         for (let i = 1; i <= invoiceData.installments_count; i++) {
-            const billId = generateId();
-
-            // Due date: 1st installment = baseDate. Next ones +30 days each.
             const dueDate = addDays(baseDate, (i - 1) * 30);
-
-            // Add the leftover cents to the first installment
             let amount = baseInstallmentValue;
+            
             if (i === 1 && remainingCents > 0) {
                 amount = (Math.round(baseInstallmentValue * 100) + remainingCents) / 100;
             }
 
-            const newBill = {
-                id: billId,
+            const billData = {
+                userId,
                 invoice_id: invoiceId,
                 supplier: invoiceData.supplier,
                 category: invoiceData.category || "Outros",
@@ -67,18 +75,17 @@ export const createInvoice = async (invoiceData) => {
                 installment_number: `${i}/${invoiceData.installments_count}`,
                 due_date: formatISO(dueDate),
                 amount: amount,
-                status: "Pending", // 'Pending' | 'Paid'
+                status: "Pending",
                 original_total: invoiceData.total_value,
                 month_key: `${getMonth(dueDate) + 1}-${getYear(dueDate)}`,
                 barcode: i === 1 ? (invoiceData.barcode || '') : ''
             };
 
-            bills.push(newBill);
+            const billRef = doc(collection(db, BILLS_COLLECTION));
+            batch.set(billRef, billData);
         }
 
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-        localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
-
+        await batch.commit();
         return invoiceId;
 
     } catch (error) {
@@ -89,25 +96,20 @@ export const createInvoice = async (invoiceData) => {
 
 /**
  * Fetches bills filtered by month and year.
- * @param {number} month - 1-indexed month (1 = January)
- * @param {number} year 
  */
 export const getBillsByMonth = async (month, year) => {
     try {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const userId = getUserId();
+        const q = query(
+            collection(db, BILLS_COLLECTION),
+            where("userId", "==", userId),
+            where("month_key", "==", `${month}-${year}`)
+        );
 
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
+        const snapshot = await getDocs(q);
+        const bills = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const filteredBills = bills.filter(bill => {
-            const billDate = parseISO(bill.due_date);
-            // billDate is parsed from ISO, so we can trust date-fns functions
-            // getMonth returns 0-indexed
-            return (getMonth(billDate) + 1) === month && getYear(billDate) === year;
-        });
-
-        // Sort by due date
-        return filteredBills.sort((a, b) => parseISO(a.due_date) - parseISO(b.due_date));
-
+        return bills.sort((a, b) => parseISO(a.due_date) - parseISO(b.due_date));
     } catch (error) {
         console.error("Error fetching bills:", error);
         throw error;
@@ -116,26 +118,13 @@ export const getBillsByMonth = async (month, year) => {
 
 /**
  * Toggles the status of a bill.
- * @param {string} billId 
- * @param {string} currentStatus 
  */
 export const toggleBillStatus = async (billId, currentStatus) => {
     try {
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
-
-        const updatedBills = bills.map(bill => {
-            if (bill.id === billId) {
-                return {
-                    ...bill,
-                    status: currentStatus === "Pending" ? "Paid" : "Pending"
-                };
-            }
-            return bill;
-        });
-
-        localStorage.setItem(BILLS_KEY, JSON.stringify(updatedBills));
-
-        return currentStatus === "Pending" ? "Paid" : "Pending";
+        const billRef = doc(db, BILLS_COLLECTION, billId);
+        const nextStatus = currentStatus === "Pending" ? "Paid" : "Pending";
+        await updateDoc(billRef, { status: nextStatus });
+        return nextStatus;
     } catch (error) {
         console.error("Error updating status:", error);
         throw error;
@@ -144,14 +133,8 @@ export const toggleBillStatus = async (billId, currentStatus) => {
 
 export const updateBill = async (id, updates) => {
     try {
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
-        const updatedBills = bills.map(bill => {
-            if (bill.id === id) {
-                return { ...bill, ...updates };
-            }
-            return bill;
-        });
-        localStorage.setItem(BILLS_KEY, JSON.stringify(updatedBills));
+        const billRef = doc(db, BILLS_COLLECTION, id);
+        await updateDoc(billRef, updates);
         return true;
     } catch (error) {
         console.error("Error updating bill:", error);
@@ -164,8 +147,15 @@ export const updateBill = async (id, updates) => {
  */
 export const getInvoices = async () => {
     try {
-        const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY) || "[]");
-        return invoices.sort((a, b) => new Date(b.purchase_date) - new Date(a.purchase_date));
+        const userId = getUserId();
+        const q = query(
+            collection(db, INVOICES_COLLECTION),
+            where("userId", "==", userId),
+            orderBy("purchase_date", "desc")
+        );
+
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.error("Error fetching invoices:", error);
         throw error;
@@ -174,12 +164,8 @@ export const getInvoices = async () => {
 
 export const updateInvoice = async (id, updates) => {
     try {
-        const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY) || "[]");
-        const updated = invoices.map(inv => {
-            if (inv.id === id) return { ...inv, ...updates };
-            return inv;
-        });
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(updated));
+        const invoiceRef = doc(db, INVOICES_COLLECTION, id);
+        await updateDoc(invoiceRef, updates);
         return true;
     } catch (error) {
         console.error("Error updating invoice:", error);
@@ -189,16 +175,18 @@ export const updateInvoice = async (id, updates) => {
 
 export const deleteInvoice = async (id) => {
     try {
-        const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY) || "[]");
-        const filtered = invoices.filter(inv => inv.id !== id);
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(filtered));
+        // 1. Delete associated bills
+        const q = query(collection(db, BILLS_COLLECTION), where("invoice_id", "==", id));
+        const billsSnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        billsSnapshot.forEach((billDoc) => {
+            batch.delete(billDoc.ref);
+        });
 
-        // Optionally, one might want to delete associated bills. We'll leave them alone or delete them?
-        // Deleting the invoice should delete its bills to keep it consistent.
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
-        const filteredBills = bills.filter(b => b.invoice_id !== id);
-        localStorage.setItem(BILLS_KEY, JSON.stringify(filteredBills));
+        // 2. Delete invoice
+        batch.delete(doc(db, INVOICES_COLLECTION, id));
 
+        await batch.commit();
         return true;
     } catch (error) {
         console.error("Error deleting invoice:", error);
@@ -207,12 +195,14 @@ export const deleteInvoice = async (id) => {
 };
 
 /**
- * Fetches all bills (installments).
+ * Fetches all bills.
  */
 export const getBills = async () => {
     try {
-        const bills = JSON.parse(localStorage.getItem(BILLS_KEY) || "[]");
-        return bills;
+        const userId = getUserId();
+        const q = query(collection(db, BILLS_COLLECTION), where("userId", "==", userId));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.error("Error fetching bills:", error);
         throw error;
@@ -220,29 +210,18 @@ export const getBills = async () => {
 };
 
 /**
- * Loads registered suppliers. Handles DB migration if ran for first time.
+ * Loads registered suppliers.
  */
 export const getRegisteredSuppliers = async () => {
     try {
-        let suppliers = JSON.parse(localStorage.getItem(SUPPLIERS_KEY));
-        
-        if (!suppliers) {
-            // Auto-Migration
-            const invoices = JSON.parse(localStorage.getItem(INVOICES_KEY) || "[]");
-            const names = invoices.map(inv => inv.supplier).filter(Boolean);
-            const uniqueNames = [...new Set(names)].sort((a, b) => a.localeCompare(b));
-            
-            suppliers = uniqueNames.map(name => ({
-                id: generateId(),
-                name: name,
-                created_at: new Date().toISOString()
-            }));
-            
-            localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(suppliers));
-        }
-
-        // Return strictly sorted by name
-        return suppliers.sort((a, b) => a.name.localeCompare(b.name));
+        const userId = getUserId();
+        const q = query(
+            collection(db, SUPPLIERS_COLLECTION),
+            where("userId", "==", userId),
+            orderBy("name", "asc")
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.error("Error fetching suppliers:", error);
         return [];
@@ -254,24 +233,24 @@ export const getRegisteredSuppliers = async () => {
  */
 export const addSupplier = async (name, contactInfo = {}) => {
     try {
-        let suppliers = JSON.parse(localStorage.getItem(SUPPLIERS_KEY));
-        if (!suppliers) suppliers = await getRegisteredSuppliers();
-        
+        const userId = getUserId();
         const trimmedName = name.trim();
+        
+        // Check uniqueness (client side check for better UX)
+        const suppliers = await getRegisteredSuppliers();
         if (suppliers.some(s => s.name.toLowerCase() === trimmedName.toLowerCase())) {
             throw new Error("Fornecedor já existente!");
         }
         
         const newSupplier = {
-            id: generateId(),
+            userId,
             name: trimmedName,
             created_at: new Date().toISOString(),
             ...contactInfo
         };
         
-        suppliers.push(newSupplier);
-        localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(suppliers));
-        return newSupplier;
+        const docRef = await addDoc(collection(db, SUPPLIERS_COLLECTION), newSupplier);
+        return { id: docRef.id, ...newSupplier };
     } catch (error) {
         console.error("Error adding supplier:", error);
         throw error;
@@ -283,9 +262,7 @@ export const addSupplier = async (name, contactInfo = {}) => {
  */
 export const deleteSupplier = async (id) => {
     try {
-        const suppliers = JSON.parse(localStorage.getItem(SUPPLIERS_KEY) || "[]");
-        const filtered = suppliers.filter(s => s.id !== id);
-        localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(filtered));
+        await deleteDoc(doc(db, SUPPLIERS_COLLECTION, id));
         return true;
     } catch (error) {
         console.error("Error deleting supplier:", error);
@@ -298,8 +275,9 @@ export const deleteSupplier = async (id) => {
  */
 export const getSupplierById = async (id) => {
     try {
-        const suppliers = await getRegisteredSuppliers();
-        return suppliers.find(s => s.id === id) || null;
+        const docRef = doc(db, SUPPLIERS_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
     } catch (error) {
         console.error("Error fetching supplier:", error);
         return null;
@@ -311,14 +289,8 @@ export const getSupplierById = async (id) => {
  */
 export const updateSupplier = async (id, updates) => {
     try {
-        const suppliers = JSON.parse(localStorage.getItem(SUPPLIERS_KEY) || "[]");
-        const updatedSuppliers = suppliers.map(supplier => {
-            if (supplier.id === id) {
-                return { ...supplier, ...updates };
-            }
-            return supplier;
-        });
-        localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(updatedSuppliers));
+        const docRef = doc(db, SUPPLIERS_COLLECTION, id);
+        await updateDoc(docRef, updates);
         return true;
     } catch (error) {
         console.error("Error updating supplier:", error);
@@ -327,69 +299,9 @@ export const updateSupplier = async (id, updates) => {
 };
 
 /**
- * --- MOCK DATA PARA DEMONSTRAÇÃO (HARDCODED) ---
- * Executado automaticamente se o banco de dados estiver apagado.
+ * We no longer need dummy data initialization automatically on every load.
+ * We will provide a way to seed data if needed, or just let the user start fresh.
  */
-export const initializeDummyData = () => {
-    // Se não existir o banco de fornecedores carregado, injetamos todos os dados falsos.
-    const currentSuppliers = JSON.parse(localStorage.getItem(SUPPLIERS_KEY) || "[]");
-    
-    if (currentSuppliers.length === 0) {
-        const suppliers = [
-            { id: "sup_1", name: "Distribuidora Ambev", contact_name: "Carlos Silva", phone: "(11) 99999-1111", email: "carlos@ambev.com.br" },
-            { id: "sup_2", name: "Coca-Cola Femsa", contact_name: "Mariana Costa", phone: "(11) 98888-2222", email: "mariana@coca.com.br" },
-            { id: "sup_3", name: "Indústria Bauducco", contact_name: "Roberto Campos", phone: "(11) 97777-3333", email: "roberto@bauducco.com.br" },
-            { id: "sup_4", name: "Unilever Brasil", contact_name: "Ana Ferreira", phone: "(11) 96666-4444", email: "ana@unilever.com" },
-            { id: "sup_5", name: "Nestlé", contact_name: "João Mendes", phone: "(11) 95555-5555", email: "joao@nestle.com" },
-            { id: "sup_6", name: "Atacadão de Embalagens", contact_name: "Pedro", phone: "", email: "" }
-        ];
-        localStorage.setItem(SUPPLIERS_KEY, JSON.stringify(suppliers));
-
-        const now = Date.now();
-        const Day = 86400000;
-
-        const invoices = [
-            { id: "inv_1", supplier: "Distribuidora Ambev", purchase_date: new Date(now - 40 * Day).toISOString(), total_value: 3500.00, installments_count: 3 },
-            { id: "inv_2", supplier: "Coca-Cola Femsa", purchase_date: new Date(now - 15 * Day).toISOString(), total_value: 1200.00, installments_count: 1 },
-            { id: "inv_3", supplier: "Nestlé", purchase_date: new Date(now - 5 * Day).toISOString(), total_value: 850.50, installments_count: 2 },
-            { id: "inv_4", supplier: "Unilever Brasil", purchase_date: new Date(now - 60 * Day).toISOString(), total_value: 5000.00, installments_count: 4 },
-            { id: "inv_5", supplier: "Distribuidora Ambev", purchase_date: new Date(now - 2 * Day).toISOString(), total_value: 2000.00, installments_count: 2 }
-        ];
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-
-        const bills = [
-            // inv_1 - Ambev (3x) - comprada há 40 dias
-            { id: "b_1", invoice_id: "inv_1", supplier: "Distribuidora Ambev", amount: 1166.66, due_date: new Date(now - 10 * Day).toISOString(), status: "Paid", installment_number: 1 },
-            { id: "b_2", invoice_id: "inv_1", supplier: "Distribuidora Ambev", amount: 1166.67, due_date: new Date(now + 2 * Day).toISOString(), status: "Pending", installment_number: 2 }, // Vence em 2 dias
-            { id: "b_3", invoice_id: "inv_1", supplier: "Distribuidora Ambev", amount: 1166.67, due_date: new Date(now + 32 * Day).toISOString(), status: "Pending", installment_number: 3 },
-
-            // inv_2 - Coca (1x) - comprada há 15 dias
-            { id: "b_4", invoice_id: "inv_2", supplier: "Coca-Cola Femsa", amount: 1200.00, due_date: new Date(now + 15 * Day).toISOString(), status: "Pending", installment_number: 1 },
-
-            // inv_3 - Nestle (2x) - comprada há 5 dias
-            { id: "b_5", invoice_id: "inv_3", supplier: "Nestlé", amount: 425.25, due_date: new Date(now + 25 * Day).toISOString(), status: "Pending", installment_number: 1 },
-            { id: "b_6", invoice_id: "inv_3", supplier: "Nestlé", amount: 425.25, due_date: new Date(now + 55 * Day).toISOString(), status: "Pending", installment_number: 2 },
-
-            // inv_4 - Unilever (4x) - comprada há 60 dias
-            { id: "b_7", invoice_id: "inv_4", supplier: "Unilever Brasil", amount: 1250.00, due_date: new Date(now - 30 * Day).toISOString(), status: "Paid", installment_number: 1 },
-            { id: "b_8", invoice_id: "inv_4", supplier: "Unilever Brasil", amount: 1250.00, due_date: new Date(now).toISOString(), status: "Pending", installment_number: 2 }, // VENCE EXATAMENTE HOJE (Alert red bar)
-            { id: "b_9", invoice_id: "inv_4", supplier: "Unilever Brasil", amount: 1250.00, due_date: new Date(now + 30 * Day).toISOString(), status: "Pending", installment_number: 3 },
-            { id: "b_10", invoice_id: "inv_4", supplier: "Unilever Brasil", amount: 1250.00, due_date: new Date(now + 60 * Day).toISOString(), status: "Pending", installment_number: 4 },
-
-            // inv_5 - Ambev (2x) - comprada há 2 dias
-            { id: "b_11", invoice_id: "inv_5", supplier: "Distribuidora Ambev", amount: 1000.00, due_date: new Date(now + 5 * Day).toISOString(), status: "Pending", installment_number: 1 }, // Vence em 5 dias
-            { id: "b_12", invoice_id: "inv_5", supplier: "Distribuidora Ambev", amount: 1000.00, due_date: new Date(now + 35 * Day).toISOString(), status: "Pending", installment_number: 2 },
-            
-            // Random overdue bill fantasma (Bauducco) - Venceu ontem
-            { id: "b_13", invoice_id: "inv_0", supplier: "Indústria Bauducco", amount: 550.00, due_date: new Date(now - 1 * Day).toISOString(), status: "Pending", installment_number: 1 },
-            
-            // Mais uma para encher o gráfico lá na frente
-            { id: "b_14", invoice_id: "inv_0", supplier: "Atacadão de Embalagens", amount: 800.00, due_date: new Date(now + 12 * Day).toISOString(), status: "Pending", installment_number: 1 },
-        ];
-        localStorage.setItem(INVOICES_KEY, JSON.stringify(invoices));
-        localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
-    }
+export const initializeDummyData = async () => {
+    // Optional implementation for training/demo purposes
 };
-
-// Executa automaticamente
-initializeDummyData();

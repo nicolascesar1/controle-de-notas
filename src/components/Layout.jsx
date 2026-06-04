@@ -1,8 +1,22 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, PieChart, Settings, LogOut, Truck } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FileText, Settings, LogOut, Truck } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Layout = ({ children }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -36,12 +50,12 @@ const Layout = ({ children }) => {
         </nav>
 
         <div className="user-profile">
-          <div className="avatar">N</div>
+          <div className="avatar">{getInitials(user?.displayName || user?.email)}</div>
           <div className="user-info">
-            <p className="user-name">Nicolas</p>
-            <p className="user-role">Admin</p>
+            <p className="user-name">{user?.displayName || 'Usuário'}</p>
+            <p className="user-role">{user?.email}</p>
           </div>
-          <LogOut size={16} className="logout-icon" />
+          <LogOut size={16} className="logout-icon" onClick={handleLogout} title="Sair" />
         </div>
       </aside>
 

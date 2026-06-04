@@ -82,8 +82,7 @@ const Login = () => {
                 </form>
 
                 <div className="login-footer">
-                    <p>Credenciais de Teste:</p>
-                    <code>admin@admin.com / admin</code>
+                    <p>Controle de Notas &copy; 2026</p>
                 </div>
             </div>
 

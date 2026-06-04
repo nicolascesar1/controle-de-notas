@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    signOut,
+    createUserWithEmailAndPassword
+} from "firebase/auth";
+import { auth } from "../firebase/config";
 
 const AuthContext = createContext();
 
@@ -9,40 +16,47 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check local storage for existing session
-        const storedUser = localStorage.getItem('finance_app_user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const login = async (email, password) => {
-        // Mock Login Logic
-        // In the future, this will be replaced by Firebase Auth
-        if (email === 'admin@admin.com' && password === 'admin') {
-            const userData = {
-                uid: '12345',
-                email: email,
-                name: 'Administrador'
-            };
-            setUser(userData);
-            localStorage.setItem('finance_app_user', JSON.stringify(userData));
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
             return { success: true };
-        } else {
-            return { success: false, error: 'Credenciais inválidas. Use admin@admin.com / admin' };
+        } catch (error) {
+            let message = "Erro ao fazer login.";
+            if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
+                message = "Email ou senha inválidos.";
+            } else if (error.code === "auth/invalid-credential") {
+                message = "Credenciais inválidas.";
+            }
+            return { success: false, error: message };
         }
     };
 
     const logout = () => {
-        setUser(null);
-        localStorage.removeItem('finance_app_user');
+        return signOut(auth);
+    };
+
+    const register = async (email, password) => {
+        try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     };
 
     const value = {
         user,
         login,
         logout,
+        register,
         loading
     };
 
