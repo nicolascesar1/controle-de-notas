@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
-import { Download, Trash2, ShieldAlert, Upload, FileSpreadsheet } from 'lucide-react';
+import { Download, ShieldAlert, Upload, FileSpreadsheet } from 'lucide-react';
 import { getInvoices, getBills, getRegisteredSuppliers } from '../services/storage';
 import { format } from 'date-fns';
-import { formatCurrency } from '../utils/format';
 import { db } from '../firebase/config';
 import { collection, writeBatch, doc } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
+import { useConfirm } from '../context/useConfirm';
+import { useToast } from '../context/useToast';
 
 const Settings = () => {
     const [isExporting, setIsExporting] = useState(false);
     const { user } = useAuth();
+    const { confirm } = useConfirm();
+    const toast = useToast();
+
+    const stripId = (item) => {
+        const rest = { ...(item || {}) };
+        delete rest.id;
+        return rest;
+    };
 
     const handleExportJson = async () => {
         setIsExporting(true);
@@ -36,11 +45,11 @@ const Settings = () => {
             link.click();
             document.body.removeChild(link);
 
-            alert("Backup realizado com sucesso!");
+            toast.success("Backup gerado com sucesso.");
 
         } catch (error) {
             console.error("Erro ao exportar:", error);
-            alert("Erro ao exportar dados.");
+            toast.error("Não foi possível exportar os dados.");
         } finally {
             setIsExporting(false);
         }
@@ -77,10 +86,10 @@ const Settings = () => {
             link.click();
             document.body.removeChild(link);
 
-            alert("Planilha gerada com sucesso!");
+            toast.success("Planilha gerada com sucesso.");
         } catch (error) {
             console.error("Erro ao gerar planilha:", error);
-            alert("Erro ao exportar dados para planilha.");
+            toast.error("Não foi possível exportar a planilha.");
         } finally {
             setIsExporting(false);
         }
@@ -99,40 +108,45 @@ const Settings = () => {
                     throw new Error("Arquivo inválido.");
                 }
 
-                if (window.confirm("Atenção: A importação irá ADICIONAR os dados aos existentes no Firebase. Deseja continuar?")) {
+                const confirmed = await confirm({
+                    title: "Restaurar backup?",
+                    message: "A restauração irá mesclar o backup com os dados atuais. Registros com o mesmo ID serão atualizados para evitar duplicidade.",
+                    confirmLabel: "Restaurar"
+                });
+                if (confirmed) {
                     const batch = writeBatch(db);
                     
                     // Import Suppliers
                     if (importedData.collections.suppliers) {
                         importedData.collections.suppliers.forEach(s => {
-                            const ref = doc(collection(db, "suppliers"));
-                            batch.set(ref, { ...s, userId: user.uid });
+                            const ref = s.id ? doc(db, "suppliers", s.id) : doc(collection(db, "suppliers"));
+                            batch.set(ref, { ...stripId(s), userId: user.uid }, { merge: true });
                         });
                     }
 
                     // Import Invoices
                     if (importedData.collections.invoices) {
                         importedData.collections.invoices.forEach(inv => {
-                            const ref = doc(collection(db, "invoices"));
-                            batch.set(ref, { ...inv, userId: user.uid });
+                            const ref = inv.id ? doc(db, "invoices", inv.id) : doc(collection(db, "invoices"));
+                            batch.set(ref, { ...stripId(inv), userId: user.uid }, { merge: true });
                         });
                     }
 
                     // Import Bills
                     if (importedData.collections.bills) {
                         importedData.collections.bills.forEach(bill => {
-                            const ref = doc(collection(db, "bills"));
-                            batch.set(ref, { ...bill, userId: user.uid });
+                            const ref = bill.id ? doc(db, "bills", bill.id) : doc(collection(db, "bills"));
+                            batch.set(ref, { ...stripId(bill), userId: user.uid }, { merge: true });
                         });
                     }
 
                     await batch.commit();
-                    alert("Dados importados com sucesso!");
+                    toast.success("Dados importados com sucesso.");
                     window.location.reload();
                 }
             } catch (error) {
                 console.error("Erro na importação:", error);
-                alert("Erro ao importar dados.");
+                toast.error("Não foi possível importar o backup.");
             }
         };
         reader.readAsText(file);
@@ -155,7 +169,7 @@ const Settings = () => {
                 </p>
 
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={handleExportCsv} disabled={isExporting} style={{ backgroundColor: '#16a34a' }}>
+                    <button className="btn btn-primary" onClick={handleExportCsv} disabled={isExporting} style={{ background: 'linear-gradient(135deg, var(--success), var(--accent-cyan))' }}>
                         <FileSpreadsheet size={18} />
                         <span>{isExporting ? 'Processando...' : 'Exportar Planilha (.csv)'}</span>
                     </button>
@@ -165,7 +179,7 @@ const Settings = () => {
                         <span>Backup Técnico (.json)</span>
                     </button>
 
-                    <label className="btn btn-ghost" style={{ cursor: 'pointer', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-app)' }}>
+                    <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
                         <Upload size={18} />
                         <span>Restaurar Backup (.json)</span>
                         <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />

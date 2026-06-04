@@ -8,8 +8,11 @@ import { getBills, toggleBillStatus, getInvoices } from '../services/storage';
 import CashflowChart from '../components/CashflowChart';
 import SupplierDonutChart from '../components/SupplierDonutChart';
 import BurnRateChart from '../components/BurnRateChart';
+import PaymentModal from '../components/PaymentModal';
 
 import { useBills } from '../hooks/useBills';
+import { updateBill } from '../services/storage';
+import { useToast } from '../context/useToast';
 
 const Dashboard = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -18,9 +21,12 @@ const Dashboard = () => {
     const [allGlobalBills, setAllGlobalBills] = useState([]);
     const [allGlobalInvoices, setAllGlobalInvoices] = useState([]);
     const [isUpcomingLoading, setIsUpcomingLoading] = useState(true);
+    const [paymentBill, setPaymentBill] = useState(null);
+    const [isPaymentSaving, setIsPaymentSaving] = useState(false);
+    const toast = useToast();
 
     // Use Custom Hook for month summary
-    const { bills, isLoading, summary, fetchBills } = useBills();
+    const { summary, fetchBills } = useBills();
 
     useEffect(() => {
         const month = currentDate.getMonth() + 1;
@@ -51,8 +57,32 @@ const Dashboard = () => {
         try {
             await toggleBillStatus(id, currentStatus);
             setRefreshTrigger(prev => prev + 1);
+        } catch {
+            toast.error("Não foi possível atualizar o status.");
+        }
+    };
+
+    const handleOpenPayment = (bill) => {
+        if (bill.status === 'Pending') {
+            setPaymentBill(bill);
+        } else {
+            handleToggleStatus(bill.id, bill.status);
+        }
+    };
+
+    const handleConfirmPayment = async (paymentData) => {
+        if (!paymentBill) return;
+        setIsPaymentSaving(true);
+        try {
+            await updateBill(paymentBill.id, paymentData);
+            toast.success("Pagamento registrado com sucesso.");
+            setPaymentBill(null);
+            setRefreshTrigger(prev => prev + 1);
         } catch (error) {
-            alert("Não foi possível atualizar o status.");
+            console.error(error);
+            toast.error("Não foi possível registrar o pagamento.");
+        } finally {
+            setIsPaymentSaving(false);
         }
     };
 
@@ -79,7 +109,7 @@ const Dashboard = () => {
         });
 
         if (targets.length === 0) {
-            alert('Nenhuma pendência para o dia de hoje!');
+            toast.info('Nenhuma pendência para hoje.');
             return;
         }
 
@@ -104,10 +134,13 @@ const Dashboard = () => {
         <>
             <header className="dashboard-header">
                 <div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Visão Geral</h2>
+                    <h2>Dashboard</h2>
                     <p className="text-secondary">
                         {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <button className="btn btn-ghost">Visão mensal</button>
                 </div>
             </header>
 
@@ -116,7 +149,7 @@ const Dashboard = () => {
                     <button 
                          className="btn btn-ghost" 
                          onClick={handleWhatsAppExport} 
-                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#16a34a', borderColor: '#bbf7d0', backgroundColor: '#f0fdf4' }}
+                         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', borderColor: '#bdeedc', backgroundColor: 'var(--success-bg)' }}
                     >
                         <MessageCircle size={18} />
                         <span>Pagar Hoje</span>
@@ -153,15 +186,15 @@ const Dashboard = () => {
             ) : (
                 <>
                     {/* Linha 2 do Pareto - Operacional */}
-                    <div className="dashboard-grid-linha2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                        <div style={{ gridColumn: 'span 2' }} className="responsive-span-2">
+                    <div className="dashboard-grid-linha2" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.9fr) minmax(280px, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                        <div className="responsive-span-2">
                             <CashflowChart bills={allGlobalBills} />
                         </div>
                         <div>
                             <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ marginBottom: '1.5rem' }}>
                                     <h3 className="section-title" style={{ marginBottom: '0.25rem' }}>Próximas Contas a Pagar</h3>
-                                    <p className="text-secondary" style={{ fontSize: '0.875rem' }}>Top 3 urgências pendentes.</p>
+                                    <p className="text-secondary" style={{ fontSize: '0.86rem' }}>Top 3 urgências pendentes.</p>
                                 </div>
                                 {upcomingBills.length === 0 ? (
                                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--slate-400)', fontSize: '0.875rem' }}>
@@ -169,7 +202,7 @@ const Dashboard = () => {
                                     </div>
                                 ) : (
                                     <div style={{ flex: 1 }}>
-                                        <UpcomingTimeline bills={upcomingBills} onToggleStatus={handleToggleStatus} />
+                                        <UpcomingTimeline bills={upcomingBills} onToggleStatus={handleOpenPayment} />
                                     </div>
                                 )}
                             </div>
@@ -177,7 +210,7 @@ const Dashboard = () => {
                     </div>
 
                     {/* Linha 3 do Pareto - Análise Tática */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                    <div className="dashboard-analytics-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(360px, 1.15fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
                         <div>
                             <SupplierDonutChart bills={allGlobalBills} />
                         </div>
@@ -186,6 +219,15 @@ const Dashboard = () => {
                         </div>
                     </div>
                 </>
+            )}
+
+            {paymentBill && (
+                <PaymentModal
+                    bill={paymentBill}
+                    onClose={() => setPaymentBill(null)}
+                    onConfirm={handleConfirmPayment}
+                    isSaving={isPaymentSaving}
+                />
             )}
         </>
     );

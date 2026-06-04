@@ -3,32 +3,69 @@ import { getRegisteredSuppliers, deleteSupplier } from '../services/storage';
 import SupplierModal from '../components/SupplierModal';
 import { Truck, Trash2, Plus, Eye, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-// Um fallback se formatDate nao lidar bem com ISO, mas é seguro
-import { formatDate } from '../utils/format';
+import { useConfirm } from '../context/useConfirm';
+import { useToast } from '../context/useToast';
 
 const Suppliers = () => {
     const [suppliers, setSuppliers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState(null);
     const navigate = useNavigate();
+    const { confirm } = useConfirm();
+    const toast = useToast();
 
     const loadSuppliers = async () => {
         setIsLoading(true);
-        const data = await getRegisteredSuppliers();
-        setSuppliers(data);
-        setIsLoading(false);
+        setLoadError('');
+        try {
+            const data = await getRegisteredSuppliers();
+            setSuppliers(data);
+        } catch (error) {
+            console.error(error);
+            setLoadError('Não foi possível carregar os fornecedores. Verifique sua conexão e tente novamente.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useEffect(() => {
-        loadSuppliers();
+        let isMounted = true;
+        const loadInitialSuppliers = async () => {
+            try {
+                const data = await getRegisteredSuppliers();
+                if (!isMounted) return;
+                setSuppliers(data);
+            } catch (error) {
+                console.error(error);
+                if (isMounted) setLoadError('Não foi possível carregar os fornecedores. Verifique sua conexão e tente novamente.');
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        };
+
+        loadInitialSuppliers();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const handleDelete = async (id) => {
-        if (window.confirm('Tem certeza que deseja remover este fornecedor? As notas antigas não sofrerão alterações, mas o nome não aparecerá mais como sugestão de auto-completar.')) {
-            await deleteSupplier(id);
-            loadSuppliers();
+        const confirmed = await confirm({
+            title: 'Remover fornecedor?',
+            message: 'Fornecedores com notas vinculadas não podem ser removidos para preservar o histórico financeiro.',
+            confirmLabel: 'Remover'
+        });
+        if (confirmed) {
+            try {
+                await deleteSupplier(id);
+                toast.success('Fornecedor removido.');
+                loadSuppliers();
+            } catch (error) {
+                toast.error(error.message || 'Não foi possível remover o fornecedor.');
+            }
         }
     };
 
@@ -51,6 +88,13 @@ const Suppliers = () => {
                         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--slate-400)' }}>
                             <div className="spinner" style={{ marginBottom: '1rem', display: 'inline-block' }}></div>
                             <p>Carregando...</p>
+                        </div>
+                    ) : loadError ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--danger)' }}>
+                            <p>{loadError}</p>
+                            <button className="btn btn-ghost" style={{ marginTop: '1rem' }} onClick={loadSuppliers}>
+                                Tentar novamente
+                            </button>
                         </div>
                     ) : (
                         <table className="bills-table">

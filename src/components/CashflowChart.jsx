@@ -66,12 +66,12 @@ const CashflowChart = ({ bills }) => {
                             formatter={(val) => formatCurrency(val)} 
                             labelStyle={{ color: 'var(--slate-500)', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px' }}
                             itemStyle={{ color: 'var(--slate-900)', fontWeight: 600 }}
-                            cursor={{ fill: 'var(--slate-50)' }}
+                            cursor={{ fill: 'var(--primary-50)' }}
                             contentStyle={{ borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}
                         />
                         <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={40}>
                             {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.hasOverdue && index === 0 ? 'var(--danger)' : '#2563eb'} />
+                                <Cell key={`cell-${index}`} fill={entry.hasOverdue && index === 0 ? 'var(--danger)' : 'var(--primary-500)'} />
                             ))}
                         </Bar>
                     </BarChart>

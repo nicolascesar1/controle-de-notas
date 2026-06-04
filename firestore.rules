@@ -2,19 +2,54 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownsExisting() {
+      return isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    function ownsIncoming() {
+      return isSignedIn() && request.auth.uid == request.resource.data.userId;
+    }
+
+    function preservesOwner() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+    function validBillStatus() {
+      return !("status" in request.resource.data)
+        || request.resource.data.status in ["Pending", "Paid", "Canceled"];
+    }
+
     match /invoices/{invoiceId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, delete: if ownsExisting();
+      allow create: if ownsIncoming()
+        && request.resource.data.total_value is number
+        && request.resource.data.total_value >= 0
+        && request.resource.data.installments_count is number
+        && request.resource.data.installments_count >= 1;
+      allow update: if ownsExisting() && ownsIncoming() && preservesOwner();
     }
     
     match /bills/{billId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, delete: if ownsExisting();
+      allow create: if ownsIncoming()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && validBillStatus();
+      allow update: if ownsExisting() && ownsIncoming() && preservesOwner() && validBillStatus();
     }
     
     match /suppliers/{supplierId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, delete: if ownsExisting();
+      allow create: if ownsIncoming()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
+      allow update: if ownsExisting() && ownsIncoming() && preservesOwner()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0;
     }
   }
 }

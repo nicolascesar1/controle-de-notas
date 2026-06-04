@@ -9,21 +9,25 @@ const SummaryCard = ({ title, value, type = 'neutral' }) => {
                 return {
                     icon: <Clock size={22} className="text-warning" />,
                     bg: 'bg-warning',
+                    trend: '12.4%',
                 };
             case 'success':
                 return {
                     icon: <CheckCircle size={22} className="text-success" />,
                     bg: 'bg-success',
+                    trend: '15.8%',
                 };
             case 'danger':
                 return {
                     icon: <AlertTriangle size={22} className="text-danger" />,
                     bg: 'bg-danger',
+                    trend: '8.2%',
                 };
             default:
                 return {
                     icon: <TrendingUp size={22} className="text-primary" />,
                     bg: 'bg-primary',
+                    trend: '15.8%',
                 };
         }
     };
@@ -32,14 +36,15 @@ const SummaryCard = ({ title, value, type = 'neutral' }) => {
 
     return (
         <div className="card summary-card-wrapper">
-            <div className={`icon-box ${config.bg}`}>
-                {config.icon}
-            </div>
             <div>
                 <p className="stat-label">{title}</p>
                 <p className="stat-value">
                     {formatCurrency(value)}
                 </p>
+                <span className="stat-trend">{config.trend}</span>
+            </div>
+            <div className={`icon-box ${config.bg}`}>
+                {config.icon}
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer, YAxis, Legend } from 'recharts';
-import { parseISO, format, getMonth, getYear, getDate } from 'date-fns';
+import { parseISO, getMonth, getYear, getDate } from 'date-fns';
 import { formatCurrency } from '../utils/format';
 
 const BurnRateChart = ({ invoices }) => {
@@ -91,8 +91,8 @@ const BurnRateChart = ({ invoices }) => {
                             iconType="circle" 
                             wrapperStyle={{ fontSize: '0.75rem', color: 'var(--slate-500)' }} 
                         />
-                        <Line type="monotone" dataKey="Atual" stroke="#2563eb" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="Anterior" stroke="#cbd5e1" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="Atual" stroke="var(--primary-500)" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="Anterior" stroke="var(--slate-400)" strokeWidth={2} dot={false} />
                     </LineChart>
                 </ResponsiveContainer>
             </div>

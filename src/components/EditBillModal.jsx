@@ -1,25 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Calendar, DollarSign, Package, Barcode, Save } from 'lucide-react';
 import { updateBill } from '../services/storage';
+import { useToast } from '../context/useToast';
 
 const EditBillModal = ({ bill, onClose, onSave }) => {
-    const [formData, setFormData] = useState({
-        supplier: '',
-        due_date: '',
-        amount: '',
-        barcode: ''
-    });
-
-    useEffect(() => {
-        if (bill) {
-            setFormData({
-                supplier: bill.supplier || '',
-                due_date: bill.due_date ? new Date(bill.due_date).toISOString().split('T')[0] : '',
-                amount: bill.amount || '',
-                barcode: bill.barcode || ''
-            });
-        }
-    }, [bill]);
+    const toast = useToast();
+    const [formData, setFormData] = useState(() => ({
+        supplier: bill?.supplier || '',
+        due_date: bill?.due_date ? new Date(bill.due_date).toISOString().split('T')[0] : '',
+        amount: bill?.amount || '',
+        barcode: bill?.barcode || ''
+    }));
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -37,10 +28,11 @@ const EditBillModal = ({ bill, onClose, onSave }) => {
 
             await updateBill(bill.id, updates);
             onSave(); // Notify parent to refresh
+            toast.success("Parcela atualizada.");
             onClose();
         } catch (error) {
             console.error("Failed to update bill", error);
-            alert("Erro ao salvar alterações.");
+            toast.error("Não foi possível salvar as alterações.");
         }
     };
 

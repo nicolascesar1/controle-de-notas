@@ -8,54 +8,60 @@ import Suppliers from './pages/Suppliers';
 import SupplierDetails from './pages/SupplierDetails';
 
 import { AuthProvider } from './context/AuthContext';
+import { ConfirmProvider } from './context/ConfirmProvider';
+import { ToastProvider } from './context/ToastProvider';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 
 function App() {
     return (
         <AuthProvider>
-            <Router>
-                <Routes>
-                    <Route path="/login" element={<Login />} />
+            <ToastProvider>
+                <ConfirmProvider>
+                    <Router>
+                        <Routes>
+                            <Route path="/login" element={<Login />} />
 
-                    {/* Protected Routes */}
-                    <Route path="/" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <Dashboard />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
-                    <Route path="/invoices" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <Invoices />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
-                    <Route path="/settings" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <Settings />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
-                    <Route path="/suppliers" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <Suppliers />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
-                    <Route path="/suppliers/:id" element={
-                        <PrivateRoute>
-                            <Layout>
-                                <SupplierDetails />
-                            </Layout>
-                        </PrivateRoute>
-                    } />
-                </Routes>
-            </Router>
+                            {/* Protected Routes */}
+                            <Route path="/" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <Dashboard />
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                            <Route path="/invoices" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <Invoices />
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                            <Route path="/settings" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <Settings />
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                            <Route path="/suppliers" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <Suppliers />
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                            <Route path="/suppliers/:id" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <SupplierDetails />
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                        </Routes>
+                    </Router>
+                </ConfirmProvider>
+            </ToastProvider>
         </AuthProvider>
     );
 }

@@ -15,7 +15,7 @@ const UpcomingTimeline = ({ bills, onToggleStatus }) => {
                 top: '25px',
                 bottom: '25px',
                 width: '2px',
-                backgroundColor: 'var(--slate-200)',
+                backgroundColor: 'var(--border-color)',
                 zIndex: 0
             }}></div>
 
@@ -42,8 +42,8 @@ const UpcomingTimeline = ({ bills, onToggleStatus }) => {
                                 width: '18px',
                                 height: '18px',
                                 borderRadius: '50%',
-                                backgroundColor: 'var(--bg-app)', // Fundo oco
-                                border: `4px solid ${isFirst ? 'var(--slate-800)' : 'var(--slate-400)'}`,
+                                backgroundColor: 'var(--bg-card)',
+                                border: `4px solid ${isFirst ? 'var(--primary-500)' : 'var(--slate-400)'}`,
                                 zIndex: 2
                             }}></div>
 
@@ -52,7 +52,7 @@ const UpcomingTimeline = ({ bills, onToggleStatus }) => {
                                 
                                 {/* Lado Esquerdo: Detalhes */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                                    <span style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--slate-800)' }}>
+                                    <span style={{ fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                                         {bill.supplier}
                                     </span>
                                     <span style={{ fontSize: '0.85rem', color: 'var(--slate-500)' }}>
@@ -65,7 +65,7 @@ const UpcomingTimeline = ({ bills, onToggleStatus }) => {
 
                                 {/* Lado Direito: Valor e Status */}
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
-                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--slate-800)' }}>
+                                    <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                                         {formatCurrency(bill.amount)}
                                     </span>
                                     

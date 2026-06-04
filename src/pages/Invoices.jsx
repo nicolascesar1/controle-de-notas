@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Package } from 'lucide-react';
 import { getInvoices, createInvoice, deleteInvoice } from '../services/storage';
-import { formatCurrency } from '../utils/format';
-import { parseISO, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import FilterBar from '../components/FilterBar';
 import InvoiceForm from '../components/InvoiceForm';
 import InvoiceTable from '../components/InvoiceTable';
 import EditInvoiceModal from '../components/EditInvoiceModal';
+import { useConfirm } from '../context/useConfirm';
+import { useToast } from '../context/useToast';
 
 const Invoices = () => {
     const [invoices, setInvoices] = useState([]);
     const [filteredInvoices, setFilteredInvoices] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingInvoice, setEditingInvoice] = useState(null);
+    const { confirm } = useConfirm();
+    const toast = useToast();
 
     const loadInvoices = async () => {
         const data = await getInvoices();
@@ -28,19 +30,25 @@ const Invoices = () => {
         setIsSubmitting(true);
         try {
             await createInvoice(formData);
-            alert("Nota salva com sucesso!");
+            toast.success("Nota fiscal salva e parcelas geradas.");
             await loadInvoices();
         } catch (error) {
             console.error(error);
-            alert("Erro ao criar Nota Fiscal.");
+            toast.error("Não foi possível criar a nota fiscal.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleDeleteInvoice = async (invoiceId) => {
-        if (window.confirm("Atenção! Isso excluirá a nota fiscal e TODAS as parcelas associadas a ela. Continuar?")) {
+        const confirmed = await confirm({
+            title: "Excluir nota fiscal?",
+            message: "Isso também excluirá todas as parcelas vinculadas a esta nota.",
+            confirmLabel: "Excluir"
+        });
+        if (confirmed) {
             await deleteInvoice(invoiceId);
+            toast.success("Nota fiscal excluída.");
             loadInvoices();
         }
     };

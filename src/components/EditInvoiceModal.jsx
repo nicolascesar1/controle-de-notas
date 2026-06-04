@@ -1,27 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Package } from 'lucide-react';
 import { getRegisteredSuppliers, updateInvoice } from '../services/storage';
+import { useToast } from '../context/useToast';
 
 const EditInvoiceModal = ({ invoice, onClose, onSave }) => {
-    const [supplier, setSupplier] = useState(invoice.supplier || '');
+    const [supplierId, setSupplierId] = useState(invoice.supplier_id || '');
+    const [supplierName, setSupplierName] = useState(invoice.supplier || '');
     const [purchaseDate, setPurchaseDate] = useState(invoice.purchase_date || '');
     const [suppliersList, setSuppliersList] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const toast = useToast();
 
     useEffect(() => {
         getRegisteredSuppliers().then(setSuppliersList);
     }, []);
 
+    useEffect(() => {
+        if (!supplierId && supplierName && suppliersList.length > 0) {
+            const matchedSupplier = suppliersList.find((sup) => sup.name === supplierName);
+            if (matchedSupplier) setSupplierId(matchedSupplier.id);
+        }
+    }, [supplierId, supplierName, suppliersList]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await updateInvoice(invoice.id, { supplier, purchase_date: purchaseDate });
+            await updateInvoice(invoice.id, {
+                supplier_id: supplierId || null,
+                supplier: supplierName,
+                purchase_date: purchaseDate
+            });
             if (onSave) onSave();
+            toast.success("Nota fiscal atualizada.");
             onClose();
         } catch (error) {
             console.error(error);
-            alert("Erro ao atualizar!");
+            toast.error("Não foi possível atualizar a nota fiscal.");
         } finally {
             setIsLoading(false);
         }
@@ -50,13 +65,18 @@ const EditInvoiceModal = ({ invoice, onClose, onSave }) => {
                                 <Package size={18} className="input-icon" />
                                 <select
                                     required
-                                    value={supplier}
-                                    onChange={(e) => setSupplier(e.target.value)}
+                                    value={supplierId}
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value;
+                                        const selectedSupplier = suppliersList.find((sup) => sup.id === selectedId);
+                                        setSupplierId(selectedId);
+                                        setSupplierName(selectedSupplier?.name || '');
+                                    }}
                                     style={{ paddingLeft: '2.5rem' }}
                                 >
                                     <option value="" disabled>Selecione um fornecedor...</option>
                                     {suppliersList.map((sup) => (
-                                        <option key={sup.id} value={sup.name}>{sup.name}</option>
+                                        <option key={sup.id} value={sup.id}>{sup.name}</option>
                                     ))}
                                 </select>
                             </div>

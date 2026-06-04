@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Calendar, Filter, X } from 'lucide-react';
+import { Search, Calendar, X } from 'lucide-react';
 
 const FilterBar = ({ onFilterChange }) => {
     const [filters, setFilters] = useState({

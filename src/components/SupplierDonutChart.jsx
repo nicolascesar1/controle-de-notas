@@ -26,8 +26,7 @@ const SupplierDonutChart = ({ bills }) => {
         data.push({ name: 'Outros', value: others });
     }
 
-    // Corporate Blue Palette
-    const COLORS = ['#1e3a8a', '#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
+    const COLORS = ['#086CEB', '#23B7EF', '#A9C1D8', '#A1772E', '#717388', '#070714'];
 
     return (
         <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

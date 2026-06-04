@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSupplierById, updateSupplier, getInvoices, getBills, deleteInvoice } from '../services/storage';
 import { ArrowLeft, Edit2, Save, User, Phone, Mail, FileText, X } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import InvoiceTable from '../components/InvoiceTable';
 import EditInvoiceModal from '../components/EditInvoiceModal';
+import { useConfirm } from '../context/useConfirm';
+import { useToast } from '../context/useToast';
 
 const SupplierDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { confirm } = useConfirm();
+    const toast = useToast();
 
     const [supplier, setSupplier] = useState(null);
     const [invoices, setInvoices] = useState([]);
@@ -23,16 +27,12 @@ const SupplierDetails = () => {
         email: ''
     });
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
             const supData = await getSupplierById(id);
             if (!supData) {
-                alert("Fornecedor não encontrado");
+                toast.error("Fornecedor não encontrado.");
                 navigate('/suppliers');
                 return;
             }
@@ -45,11 +45,14 @@ const SupplierDetails = () => {
 
             // Load financial data
             const allInvoices = await getInvoices();
-            const supInvoices = allInvoices.filter(inv => inv.supplier === supData.name);
+            const supInvoices = allInvoices.filter(inv => inv.supplier_id === supData.id || inv.supplier === supData.name);
             setInvoices(supInvoices);
 
             const allBills = await getBills();
-            const supPendingBills = allBills.filter(b => b.supplier === supData.name && b.status === "Pending");
+            const supPendingBills = allBills.filter(b =>
+                (b.supplier_id === supData.id || b.supplier === supData.name) &&
+                b.status === "Pending"
+            );
 
             const totalPurchased = supInvoices.reduce((acc, curr) => acc + (curr.total_value || 0), 0);
             const balanceDue = supPendingBills.reduce((acc, curr) => acc + (curr.amount || 0), 0);
@@ -61,21 +64,32 @@ const SupplierDetails = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id, navigate, toast]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const handleSaveContact = async () => {
         try {
             await updateSupplier(id, contactForm);
             setSupplier(prev => ({ ...prev, ...contactForm }));
             setIsEditingContact(false);
-        } catch (error) {
-            alert("Erro ao salvar contatos");
+            toast.success("Contato do fornecedor atualizado.");
+        } catch {
+            toast.error("Não foi possível salvar os contatos.");
         }
     };
 
     const handleDeleteInvoice = async (invoiceId) => {
-        if (window.confirm("Atenção! Isso excluirá a nota fiscal e TODAS as parcelas associadas a ela. Continuar?")) {
+        const confirmed = await confirm({
+            title: "Excluir nota fiscal?",
+            message: "Isso também excluirá todas as parcelas vinculadas a esta nota.",
+            confirmLabel: "Excluir"
+        });
+        if (confirmed) {
             await deleteInvoice(invoiceId);
+            toast.success("Nota fiscal excluída.");
             loadData();
         }
     };

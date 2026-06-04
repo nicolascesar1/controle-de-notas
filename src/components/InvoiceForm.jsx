@@ -3,7 +3,16 @@ import { Plus, X, Calendar, DollarSign, Package, Barcode, Tag, ImagePlus } from 
 import { getRegisteredSuppliers } from '../services/storage';
 import SupplierModal from './SupplierModal';
 
-import { addDays, parseISO } from 'date-fns';
+import { addMonths, parseISO } from 'date-fns';
+
+const getDefaultDates = () => {
+    const purchaseDate = new Date();
+    const firstDueDate = addMonths(purchaseDate, 1);
+    return {
+        purchase_date: purchaseDate.toISOString().split('T')[0],
+        firstDueDate: firstDueDate.toISOString().split('T')[0]
+    };
+};
 
 const InvoiceForm = ({ onSubmit, isLoading }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -18,16 +27,17 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
 
     const handleSaveSupplier = (newSupplier) => {
         getRegisteredSuppliers().then(setSuppliers);
-        setFormData(prev => ({ ...prev, supplier: newSupplier.name }));
+        setFormData(prev => ({
+            ...prev,
+            supplier_id: newSupplier.id,
+            supplier: newSupplier.name
+        }));
     };
 
-    const today = new Date().toISOString().split('T')[0];
-    const initialDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
     const [formData, setFormData] = useState({
+        ...getDefaultDates(),
+        supplier_id: '',
         supplier: '',
-        purchase_date: today,
-        firstDueDate: initialDueDate,
         total_value: '',
         installments_count: 1,
         photo: null
@@ -72,11 +82,16 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
             if (name === 'purchase_date' && value) {
                 try {
                     const purchaseDate = parseISO(value);
-                    const newDueDate = addDays(purchaseDate, 30);
+                    const newDueDate = addMonths(purchaseDate, 1);
                     newState.firstDueDate = newDueDate.toISOString().split('T')[0];
-                } catch (e) {
+                } catch {
                     // Invalid date, ignore
                 }
+            }
+
+            if (name === 'supplier_id') {
+                const selectedSupplier = suppliers.find((sup) => sup.id === value);
+                newState.supplier = selectedSupplier?.name || '';
             }
 
             return newState;
@@ -96,9 +111,9 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
 
         setIsExpanded(false);
         setFormData({
+            ...getDefaultDates(),
+            supplier_id: '',
             supplier: '',
-            purchase_date: new Date().toISOString().split('T')[0],
-            firstDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             total_value: '',
             installments_count: 1,
             photo: null
@@ -139,15 +154,15 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
                                     <div className="input-with-icon" style={{ flex: 1 }}>
                                         <Package size={18} className="input-icon" />
                                         <select
-                                            name="supplier"
+                                            name="supplier_id"
                                             required
-                                            value={formData.supplier}
+                                            value={formData.supplier_id}
                                             onChange={handleChange}
                                             style={{ paddingLeft: '2.5rem' }}
                                         >
                                             <option value="" disabled>Selecione um fornecedor...</option>
                                             {suppliers.map((sup) => (
-                                                <option key={sup.id} value={sup.name}>{sup.name}</option>
+                                                <option key={sup.id} value={sup.id}>{sup.name}</option>
                                             ))}
                                         </select>
                                     </div>

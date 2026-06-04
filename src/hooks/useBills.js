@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { getBillsByMonth, toggleBillStatus } from '../services/storage';
-import { parseISO, isBefore, startOfDay } from 'date-fns';
+import { calculateBillsSummary } from '../utils/financialRules';
 
 export const useBills = () => {
     const [bills, setBills] = useState([]);
@@ -8,29 +8,7 @@ export const useBills = () => {
     const [summary, setSummary] = useState({ total: 0, paid: 0, pending: 0, overdue: 0 });
 
     const calculateSummary = useCallback((data) => {
-        const total = data.reduce((acc, bill) => acc + bill.amount, 0);
-
-        const paid = data
-            .filter(b => b.status === 'Paid')
-            .reduce((acc, bill) => acc + bill.amount, 0);
-
-        const pending = total - paid;
-
-        // Check for overdue. We compare bill due_date against today.
-        // due_date in storage is ISO string.
-        const today = startOfDay(new Date());
-
-        const overdue = data
-            .filter(b => {
-                if (b.status !== 'Pending') return false;
-                const dueDate = parseISO(b.due_date);
-                // isBefore(dateToCompare, dateToCompareAgainst)
-                // If dueDate is before today, it's overdue
-                return isBefore(dueDate, today);
-            })
-            .reduce((acc, bill) => acc + bill.amount, 0);
-
-        setSummary({ total, paid, pending, overdue });
+        setSummary(calculateBillsSummary(data));
     }, []);
 
     const fetchBills = useCallback(async (month, year) => {

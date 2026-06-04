@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Truck, User, Phone, Mail } from 'lucide-react';
 import { addSupplier, updateSupplier } from '../services/storage';
 
@@ -10,6 +10,16 @@ const SupplierModal = ({ onClose, onSave, supplierToEdit }) => {
     
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    const getErrorMessage = (err) => {
+        if (err?.code === 'permission-denied') {
+            return 'Sem permissão para salvar. Saia e entre novamente na sua conta.';
+        }
+        if (err?.code === 'unavailable') {
+            return 'Não foi possível conectar ao banco de dados. Verifique sua internet.';
+        }
+        return err?.message || 'Não foi possível salvar o fornecedor.';
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -28,7 +38,7 @@ const SupplierModal = ({ onClose, onSave, supplierToEdit }) => {
             }
             onClose();
         } catch (err) {
-             setError(err.message);
+             setError(getErrorMessage(err));
         } finally {
              setIsLoading(false);
         }

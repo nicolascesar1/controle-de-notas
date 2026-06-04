@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 
@@ -25,7 +25,7 @@ const Login = () => {
                 setError(result.error);
                 setIsLoading(false);
             }
-        } catch (err) {
+        } catch {
             setError('Ocorreu um erro ao fazer login.');
             setIsLoading(false);
         }
@@ -35,9 +35,9 @@ const Login = () => {
         <div className="login-container">
             <div className="login-card">
                 <div className="login-header">
-                    <div className="logo-icon-lg">F</div>
-                    <h1>Financeiro</h1>
-                    <p>Faça login para acessar o sistema</p>
+                    <div className="logo-icon-lg">N</div>
+                    <h1>Controle de Notas</h1>
+                    <p>Acesse seu painel financeiro</p>
                 </div>
 
                 {error && <div className="alert-error">{error}</div>}
@@ -92,16 +92,20 @@ const Login = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background-color: var(--slate-100);
+                    background:
+                        radial-gradient(circle at 20% 15%, rgba(35, 183, 239, 0.24), transparent 26rem),
+                        radial-gradient(circle at 85% 75%, rgba(8, 108, 235, 0.16), transparent 30rem),
+                        var(--bg-app);
                     padding: 1rem;
                 }
                 .login-card {
                     background: white;
                     padding: 2.5rem;
                     border-radius: var(--radius-lg);
-                    box-shadow: var(--shadow-lg);
+                    border: 1px solid var(--border-color);
+                    box-shadow: var(--shadow-xl);
                     width: 100%;
-                    max-width: 400px;
+                    max-width: 420px;
                 }
                 .login-header {
                     text-align: center;
@@ -110,19 +114,20 @@ const Login = () => {
                 .logo-icon-lg {
                     width: 48px;
                     height: 48px;
-                    background-color: var(--primary-600);
+                    background: linear-gradient(135deg, var(--primary-500), var(--accent-cyan));
                     color: white;
-                    border-radius: 12px;
+                    border-radius: var(--radius-lg);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-weight: 700;
                     font-size: 1.5rem;
                     margin: 0 auto 1rem;
+                    box-shadow: 0 16px 30px rgba(8, 108, 235, 0.24);
                 }
                 .login-header h1 {
-                    font-size: 1.5rem;
-                    font-weight: 700;
+                    font-size: 1.75rem;
+                    font-weight: 800;
                     color: var(--text-primary);
                     margin-bottom: 0.5rem;
                 }
