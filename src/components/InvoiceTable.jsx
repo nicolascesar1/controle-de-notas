@@ -1,12 +1,13 @@
 import React from 'react';
-import { Package, Edit2, Trash2, Eye } from 'lucide-react';
+import { Package, Edit2, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import { parseISO, format } from 'date-fns';
 
 const InvoiceTable = ({ invoices, onEdit, onDelete }) => {
     return (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="card table-container" style={{ padding: 0 }}>
+            <div className="table-responsive">
+            <table className="bills-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ backgroundColor: 'var(--slate-50)', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 600 }}>Fornecedor</th>
@@ -70,6 +71,7 @@ const InvoiceTable = ({ invoices, onEdit, onDelete }) => {
                     )}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 };

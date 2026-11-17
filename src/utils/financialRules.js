@@ -42,7 +42,7 @@ export const generateInstallmentBills = ({ invoiceData, invoiceId, userId }) => 
         ? parseISO(invoiceData.firstDueDate)
         : parseISO(invoiceData.purchase_date);
     const amounts = splitAmountIntoInstallments(invoiceData.total_value, installmentsCount);
-    const photo = invoiceData.photo_url ?? invoiceData.photo ?? null;
+    const photo = invoiceData.photo ?? null;
 
     return amounts.map((amount, index) => {
         const installmentIndex = index + 1;

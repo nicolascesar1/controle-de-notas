@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Calendar, DollarSign, Package, Barcode, Tag, ImagePlus } from 'lucide-react';
+import { Plus, X, Calendar, DollarSign, Package } from 'lucide-react';
 import { getRegisteredSuppliers } from '../services/storage';
 import SupplierModal from './SupplierModal';
 
@@ -39,38 +39,8 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
         supplier_id: '',
         supplier: '',
         total_value: '',
-        installments_count: 1,
-        photo: null
+        installments_count: 1
     });
-
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                let scaleSize = 1;
-                if (img.width > MAX_WIDTH) {
-                    scaleSize = MAX_WIDTH / img.width;
-                }
-                canvas.width = img.width * scaleSize;
-                canvas.height = img.height * scaleSize;
-
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                // Compress heavily to keep LocalStorage safe (~0.5 quality)
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-                setFormData(prev => ({ ...prev, photo: dataUrl }));
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -115,8 +85,7 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
             supplier_id: '',
             supplier: '',
             total_value: '',
-            installments_count: 1,
-            photo: null
+            installments_count: 1
         });
     };
 
@@ -240,20 +209,6 @@ const InvoiceForm = ({ onSubmit, isLoading }) => {
                                 </select>
                             </div>
 
-
-                            <div className="form-group">
-                                <label>Anexar Recibo / Foto</label>
-                                <div className="input-with-icon">
-                                    <ImagePlus size={18} className="input-icon" />
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        onChange={handleImageUpload}
-                                        style={{ padding: '0.4rem 0.5rem 0.4rem 2.5rem' }}
-                                    />
-                                </div>
-                            </div>
                         </div>
                     </div>
 
