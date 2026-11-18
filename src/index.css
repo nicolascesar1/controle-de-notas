@@ -264,11 +264,12 @@ select:focus {
 .modal-content {
   width: 100%;
   max-width: 600px;
+  max-height: calc(100vh - 2rem);
   background: white;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   animation: scaleIn 0.2s ease-out;
-  overflow: hidden;
+  overflow: auto;
 }
 
 @keyframes fadeIn {
@@ -311,6 +312,7 @@ select:focus {
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -443,6 +445,53 @@ select:focus {
   .summary-grid {
     grid-template-columns: 1fr;
   }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0.5rem;
+  }
+
+  .modal-content {
+    max-height: calc(100dvh - 1rem);
+    border-radius: var(--radius-lg);
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .modal-footer {
+    justify-content: stretch;
+    gap: 0.65rem;
+  }
+
+  .modal-footer .btn {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .dashboard-header,
+  .page-header {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .dashboard-header > div,
+  .page-header > div,
+  .dashboard-header .btn,
+  .page-header .btn {
+    width: 100%;
+  }
+
+  .month-selector {
+    width: 100%;
+    justify-content: space-between;
+    overflow-x: auto;
+  }
 }
 
 /* Badges */
@@ -503,6 +552,16 @@ table tr:hover {
 .table-container {
   padding: 0;
   overflow: hidden;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+  min-width: 680px;
 }
 
 .spinner {

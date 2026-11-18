@@ -11,8 +11,7 @@ import {
     getDoc,
     writeBatch
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadString } from "firebase/storage";
-import { db, auth, storage } from "../firebase/config";
+import { db, auth } from "../firebase/config";
 import { DEFAULT_CATEGORY, generateInstallmentBills, getMonthKey } from "../utils/financialRules";
 
 const INVOICES_COLLECTION = "invoices";
@@ -31,22 +30,18 @@ const stripFirestoreId = (data) => {
     return rest;
 };
 
+const stripReservedFields = (data) => {
+    const rest = stripFirestoreId(data);
+    delete rest.userId;
+    return rest;
+};
+
 const commitInChunks = async (operations, chunkSize = 450) => {
     for (let i = 0; i < operations.length; i += chunkSize) {
         const batch = writeBatch(db);
         operations.slice(i, i + chunkSize).forEach((operation) => operation(batch));
         await batch.commit();
     }
-};
-
-const uploadInvoicePhoto = async (photo, userId) => {
-    if (!photo || typeof photo !== "string" || !photo.startsWith("data:image/")) {
-        return photo || null;
-    }
-
-    const photoRef = ref(storage, `users/${userId}/invoices/${crypto.randomUUID()}.jpg`);
-    await uploadString(photoRef, photo, "data_url");
-    return getDownloadURL(photoRef);
 };
 
 /**
@@ -57,10 +52,9 @@ export const createInvoice = async (invoiceData) => {
     try {
         const userId = getUserId();
         const supplierName = invoiceData.supplier_name || invoiceData.supplier;
-        const photoUrl = await uploadInvoicePhoto(invoiceData.photo, userId);
         const invoicePayload = {
             ...stripFirestoreId(invoiceData),
-            photo: photoUrl
+            photo: null
         };
         
         // 1. Create Invoice Document
@@ -71,14 +65,14 @@ export const createInvoice = async (invoiceData) => {
             supplier_id: invoiceData.supplier_id || null,
             created_at: formatISO(new Date()),
             category: invoiceData.category || DEFAULT_CATEGORY,
-            photo: photoUrl
+            photo: null
         });
 
         const invoiceId = invoiceRef.id;
 
         const batch = writeBatch(db);
         const bills = generateInstallmentBills({
-            invoiceData: { ...invoiceData, photo_url: photoUrl },
+            invoiceData: { ...invoiceData, photo: null },
             invoiceId,
             userId
         });
@@ -298,10 +292,10 @@ export const addSupplier = async (name, contactInfo = {}) => {
         }
         
         const newSupplier = {
+            ...stripReservedFields(contactInfo),
             userId,
             name: trimmedName,
-            created_at: new Date().toISOString(),
-            ...contactInfo
+            created_at: new Date().toISOString()
         };
         
         const docRef = await addDoc(collection(db, SUPPLIERS_COLLECTION), newSupplier);
@@ -370,7 +364,7 @@ export const updateSupplier = async (id, updates) => {
         const currentSupplier = { id: currentSupplierSnap.id, ...currentSupplierSnap.data() };
         if (currentSupplier.userId !== userId) throw new Error("Usuário não autorizado.");
 
-        const normalizedUpdates = { ...stripFirestoreId(updates) };
+        const normalizedUpdates = stripReservedFields(updates);
         if (normalizedUpdates.name) normalizedUpdates.name = normalizedUpdates.name.trim();
 
         const operations = [(batch) => batch.update(docRef, normalizedUpdates)];
