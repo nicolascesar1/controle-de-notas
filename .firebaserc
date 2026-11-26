@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "controle-notas-pai-1337"
+  },
   "targets": {},
   "etags": {}
 }

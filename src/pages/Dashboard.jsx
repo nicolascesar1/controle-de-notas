@@ -37,19 +37,25 @@ const Dashboard = () => {
     useEffect(() => {
         const loadGlobals = async () => {
             setIsUpcomingLoading(true);
-            const allBills = await getBills();
-            const allInv = await getInvoices();
-            
-            setAllGlobalBills(allBills);
-            setAllGlobalInvoices(allInv);
+            try {
+                const allBills = await getBills();
+                const allInv = await getInvoices();
 
-            const pending = allBills.filter(b => b.status === 'Pending');
-            pending.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-            setUpcomingBills(pending.slice(0, 3));
-            setIsUpcomingLoading(false);
+                setAllGlobalBills(allBills);
+                setAllGlobalInvoices(allInv);
+
+                const pending = allBills.filter(b => b.status === 'Pending');
+                pending.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+                setUpcomingBills(pending.slice(0, 3));
+            } catch (error) {
+                console.error(error);
+                toast.error("Não foi possível carregar os dados do painel.");
+            } finally {
+                setIsUpcomingLoading(false);
+            }
         };
         loadGlobals();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, toast]);
 
 
 
@@ -134,7 +140,7 @@ const Dashboard = () => {
         <>
             <header className="dashboard-header">
                 <div>
-                    <h2>Dashboard</h2>
+                    <h2>Painel</h2>
                     <p className="text-secondary">
                         {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </p>

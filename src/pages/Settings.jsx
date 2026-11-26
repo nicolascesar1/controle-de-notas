@@ -20,6 +20,19 @@ const Settings = () => {
         return rest;
     };
 
+    const commitOperationsInChunks = async (operations, chunkSize = 450) => {
+        for (let i = 0; i < operations.length; i += chunkSize) {
+            const batch = writeBatch(db);
+            operations.slice(i, i + chunkSize).forEach((operation) => operation(batch));
+            await batch.commit();
+        }
+    };
+
+    const withCurrentUser = (item) => ({
+        ...stripId(item),
+        userId: user.uid
+    });
+
     const handleExportJson = async () => {
         setIsExporting(true);
         try {
@@ -114,13 +127,15 @@ const Settings = () => {
                     confirmLabel: "Restaurar"
                 });
                 if (confirmed) {
-                    const batch = writeBatch(db);
+                    const operations = [];
                     
                     // Import Suppliers
                     if (importedData.collections.suppliers) {
                         importedData.collections.suppliers.forEach(s => {
                             const ref = s.id ? doc(db, "suppliers", s.id) : doc(collection(db, "suppliers"));
-                            batch.set(ref, { ...stripId(s), userId: user.uid }, { merge: true });
+                            const supplier = withCurrentUser(s);
+                            if (!supplier.name || typeof supplier.name !== 'string') return;
+                            operations.push((batch) => batch.set(ref, supplier, { merge: true }));
                         });
                     }
 
@@ -128,7 +143,10 @@ const Settings = () => {
                     if (importedData.collections.invoices) {
                         importedData.collections.invoices.forEach(inv => {
                             const ref = inv.id ? doc(db, "invoices", inv.id) : doc(collection(db, "invoices"));
-                            batch.set(ref, { ...stripId(inv), userId: user.uid }, { merge: true });
+                            const invoice = withCurrentUser(inv);
+                            if (typeof invoice.total_value !== 'number' || invoice.total_value < 0) return;
+                            if (typeof invoice.installments_count !== 'number' || invoice.installments_count < 1) return;
+                            operations.push((batch) => batch.set(ref, invoice, { merge: true }));
                         });
                     }
 
@@ -136,11 +154,14 @@ const Settings = () => {
                     if (importedData.collections.bills) {
                         importedData.collections.bills.forEach(bill => {
                             const ref = bill.id ? doc(db, "bills", bill.id) : doc(collection(db, "bills"));
-                            batch.set(ref, { ...stripId(bill), userId: user.uid }, { merge: true });
+                            const importedBill = withCurrentUser(bill);
+                            if (typeof importedBill.amount !== 'number' || importedBill.amount < 0) return;
+                            if (importedBill.status && !['Pending', 'Paid', 'Canceled'].includes(importedBill.status)) return;
+                            operations.push((batch) => batch.set(ref, importedBill, { merge: true }));
                         });
                     }
 
-                    await batch.commit();
+                    await commitOperationsInChunks(operations);
                     toast.success("Dados importados com sucesso.");
                     window.location.reload();
                 }
